@@ -1,0 +1,39 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "MiniNotch: Setup",
+      "type": "shell",
+      "command": "./scripts/setup.sh",
+      "problemMatcher": []
+    },
+    {
+      "label": "MiniNotch: Swift Build",
+      "type": "shell",
+      "command": "swift build -c debug",
+      "problemMatcher": ["$swiftc"]
+    },
+    {
+      "label": "MiniNotch: Build + Start",
+      "type": "shell",
+      "command": "./scripts/dev.sh",
+      "problemMatcher": ["$swiftc"],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "MiniNotch: Test Media",
+      "type": "shell",
+      "command": "./scripts/test-media.sh",
+      "problemMatcher": []
+    },
+    {
+      "label": "MiniNotch: Release installieren",
+      "type": "shell",
+      "command": "./scripts/install-app.sh",
+      "problemMatcher": ["$swiftc"]
+    }
+  ]
+}

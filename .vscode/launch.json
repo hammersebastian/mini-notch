@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug MiniNotch",
+      "program": "${workspaceFolder}/.build/debug/MiniNotch",
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "MiniNotch: Swift Build"
+    }
+  ]
+}
