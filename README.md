@@ -1,8 +1,50 @@
-# MiniNotch
+<p align="center">
+  <img src="Resources/AppIcon.png" width="128" alt="MiniNotch App-Icon">
+</p>
+
+<h1 align="center">MiniNotch</h1>
+
+<p align="center"><strong>Now Playing und Codex-Limits direkt in der MacBook-Notch.</strong></p>
 
 Kleine native macOS-App für die MacBook-Notch. Sie zeigt die aktuell aktive System-Medienquelle an – primär Spotify, aber auch Browser/YouTube, wenn macOS die Wiedergabe als Now Playing meldet.
 
-![UI-Referenz](docs/reference-ui.png)
+## Vorschau
+
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <img src="docs/media-expanded.png" alt="Aufgeklappte Medienansicht mit Wiedergabesteuerung" />
+      <br><sub>Medien: aufgeklappte Player-Ansicht</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="docs/codex-expanded.png" alt="Aufgeklappte Codex-Ansicht mit Nutzungslimits" />
+      <br><sub>Codex: 5-Stunden- und Wochenlimit</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="docs/media-compact.png" alt="Kompakte Medienansicht in der Notch" />
+      <br><sub>Medien: kompakte Ansicht</sub>
+    </td>
+    <td align="center">
+      <img src="docs/codex-compact.png" alt="Kompakte Codex-Ansicht in der Notch" />
+      <br><sub>Codex: kompakte Ansicht</sub>
+    </td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <img src="docs/settings-content.png" width="360" alt="Einstellungen für Notch-Inhalte und automatisches Ausblenden" />
+      <br><sub>Einstellungen: Inhalte und Verhalten</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="docs/settings-appearance.png" width="360" alt="Einstellungen für Farben und Autostart" />
+      <br><sub>Einstellungen: Farben und System</sub>
+    </td>
+  </tr>
+</table>
 
 ## Funktionen in V0.1
 
@@ -14,9 +56,12 @@ Kleine native macOS-App für die MacBook-Notch. Sie zeigt die aktuell aktive Sys
 - Systemlautstärke
 - animierter Equalizer
 - beim Titelwechsel optional für ca. 2,8 Sekunden größere Notch
-- umschaltbare Codex-Limits: 5-Stunden- und Wochenverbrauch in Prozent
+- einzeln aktivierbare Medien- und Codex-Ansichten
+- Codex-Limits: 5-Stunden- und Wochenverbrauch in Prozent
+- anpassbare Farben für Notch, Wave-Animation und Codex-Status
 - Menüleisten-App ohne Dock-Icon
 - optionale Anmeldung beim Login
+- automatische Ausblendung, wenn das aktive Fenster die Notch überdeckt
 - wenn keine Medienquelle gemeldet wird, ist MiniNotch unsichtbar
 
 ## Lokal installieren
@@ -150,10 +195,12 @@ und öffnet die App direkt.
 5. In der Timeline klicken oder ziehen, um zu spulen.
 6. Lautstärkeregler bewegen.
 7. In Spotify zum nächsten Song springen. Die Notch sollte ca. 2,8 Sekunden größer werden.
-8. Menüleisten-Musiknote → **Einstellungen …**.
-9. **Neuen Titel kurz hervorheben** aus- und wieder einschalten.
-10. Über die Notch fahren und oben direkt zwischen **Medien** und **Codex** wechseln. Die Codex-Ansicht zeigt das 5-Stunden- und Wochenlimit; beim Hover erscheinen Fortschrittsbalken sowie die verbleibende Zeit und der genaue Rücksetzzeitpunkt.
-11. Spotify/Browser komplett schließen. In der Medienansicht verschwindet MiniNotch, sobald macOS keine Now-Playing-Quelle mehr meldet.
+8. Menüleisten-Icon → **Einstellungen …**.
+9. Unter **Notch-Anzeige** die Inhalte **Medien** und **Codex-Limits** aktivieren oder deaktivieren. Bei nur einem aktiven Inhalt wird die Auswahlleiste ausgeblendet; ohne aktive Inhalte erscheint ein Hinweis.
+10. Sind beide Inhalte aktiv, über die Notch fahren und oben direkt zwischen **Medien** und **Codex** wechseln. Die Codex-Ansicht zeigt das 5-Stunden- und Wochenlimit; beim Hover erscheinen Fortschrittsbalken sowie die verbleibende Zeit und der genaue Rücksetzzeitpunkt.
+11. **Neuen Titel kurz hervorheben** aus- und wieder einschalten.
+12. Spotify/Browser komplett schließen. In der Medienansicht erscheint dann der Hinweis, dass keine Wiedergabe aktiv ist.
+13. Für die automatische Ausblendung in **Einstellungen … → Automatisches Ausblenden** auf **Zugriff anfordern** klicken und MiniNotch erlauben. Überlappt anschließend das aktive Fenster die Notch, wird sie ausgeblendet und erscheint nach Ende der Überschneidung wieder.
 
 ## Release lokal installieren
 
@@ -198,7 +245,10 @@ Falls sich Abhängigkeiten geändert haben, vorher noch einmal `./scripts/setup.
 MiniNotch/
 ├── .vscode/
 ├── Resources/
-│   └── Info.plist
+│   ├── AppIcon.icns
+│   ├── AppIcon.png
+│   ├── Info.plist
+│   └── MenuBarIcon.png
 ├── Sources/MiniNotch/
 │   ├── AppDelegate.swift
 │   ├── AppModel.swift
@@ -210,9 +260,15 @@ MiniNotch/
 │   ├── NotchView.swift
 │   ├── SeekBar.swift
 │   ├── SettingsView.swift
-│   └── SystemVolumeService.swift
+│   ├── SystemVolumeService.swift
+│   └── WindowOcclusionService.swift
 ├── docs/
-│   └── reference-ui.png
+│   ├── codex-compact.png
+│   ├── codex-expanded.png
+│   ├── media-compact.png
+│   ├── media-expanded.png
+│   ├── settings-appearance.png
+│   └── settings-content.png
 ├── scripts/
 ├── THIRD_PARTY.md
 ├── Package.swift
@@ -245,7 +301,7 @@ und aktiviere Autostart dann aus `~/Applications/MiniNotch.app`.
 
 ### App nach macOS-Update plötzlich ohne Medien
 
-Im Menüleisten-Icon **Medienerkennung neu starten** wählen und zusätzlich prüfen:
+MiniNotch einmal beenden und erneut starten. Zusätzlich prüfen:
 
 ```bash
 media-control get
