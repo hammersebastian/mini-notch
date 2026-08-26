@@ -21,7 +21,7 @@ final class MediaControlService {
     func start() {
         guard let executablePath else {
             DispatchQueue.main.async { [weak self] in
-                self?.onError?("media-control wurde nicht gefunden. Führe im Projekt ./scripts/setup.sh aus.")
+                self?.onError?("Der eingebettete Medien-Helper wurde nicht gefunden. Installiere MiniNotch erneut.")
             }
             return
         }
@@ -170,6 +170,14 @@ final class MediaControlService {
     }
 
     private func locateMediaControl() -> String? {
+        let bundledPath = Bundle.main.bundleURL
+            .appendingPathComponent("Contents/Resources/media-control/bin/media-control")
+            .path
+
+        if FileManager.default.isExecutableFile(atPath: bundledPath) {
+            return bundledPath
+        }
+
         let knownPaths = [
             "/opt/homebrew/bin/media-control",
             "/usr/local/bin/media-control"

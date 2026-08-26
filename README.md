@@ -66,7 +66,21 @@ Kleine native macOS-App für die MacBook-Notch. Sie zeigt die aktuell aktive Sys
 
 ## Lokal installieren
 
-Diese Anleitung installiert und baut MiniNotch aus dem Quellcode. Sie wurde für Apple-Silicon- und Intel-Macs mit macOS 14 oder neuer ausgelegt.
+Diese Anleitung installiert und baut MiniNotch aus dem Quellcode. Die erzeugte
+App ist für Apple-Silicon-Macs mit macOS 14 oder neuer ausgelegt.
+
+## MiniNotch über die DMG installieren
+
+Die Release-DMG ist für **Apple Silicon** und macOS 14 oder neuer. Der Ziel-Mac
+braucht dafür weder Xcode, Homebrew noch `media-control`:
+
+1. `MiniNotch-x.y.z-arm64.dmg` herunterladen und mit Doppelklick öffnen.
+2. `MiniNotch.app` in den Ordner **Applications** ziehen.
+3. MiniNotch aus **Programme** starten.
+
+`media-control` und sein MediaRemote-Adapter liegen innerhalb der App. Ohne
+Apple-Developer-ID-Signatur kann macOS beim ersten Start einen Gatekeeper-Hinweis
+zeigen; dann MiniNotch im Finder mit Rechtsklick → **Öffnen** starten.
 
 ### Voraussetzungen
 
@@ -218,6 +232,33 @@ Das baut eine Release-Version und kopiert sie nach:
 
 Anschließend kannst du in den MiniNotch-Einstellungen **Beim Anmelden starten** aktivieren.
 
+## Release-DMG erstellen
+
+Auf dem **Build-Mac** werden die Apple Command Line Tools, Homebrew und einmalig
+`media-control` benötigt. Auf dem Mac, auf dem die DMG installiert wird, nicht.
+
+```bash
+brew install media-control
+./scripts/create-dmg.sh
+```
+
+Das Script baut ausschließlich für Apple Silicon, bettet `media-control` samt
+MediaRemote-Adapter ein und erzeugt:
+
+```text
+build/releases/MiniNotch-0.1.0-arm64.dmg
+```
+
+Die DMG enthält einen Applications-Shortcut und die Datei `THIRD_PARTY.md` mit
+den Lizenzhinweisen. Für eine öffentliche Verteilung ohne Gatekeeper-Warnung
+kann der Build-Mac mit einer Developer-ID signieren, beispielsweise:
+
+```bash
+CODE_SIGN_IDENTITY="Developer ID Application: Dein Name (TEAMID)" ./scripts/create-dmg.sh
+```
+
+Danach muss die erzeugte DMG noch bei Apple notarisert werden.
+
 ## Aktualisieren
 
 In den lokalen Repository-Ordner wechseln, Änderungen abrufen und die App erneut installieren:
@@ -319,11 +360,14 @@ Danach das Terminal neu starten und `./scripts/setup.sh` erneut ausführen.
 
 ## Aktueller technischer Aufbau
 
-MiniNotch verwendet für die V0.1 das separat installierte `media-control`. Das ermöglicht aktuelle Now-Playing-Daten auch auf neueren macOS-Versionen. Für eine spätere Version kann der zugrunde liegende MediaRemote-Adapter direkt mit der App gebündelt werden; dann braucht der zweite Mac kein Homebrew mehr.
+MiniNotch verwendet `media-control` inklusive MediaRemote-Adapter für aktuelle
+Now-Playing-Daten auch auf neueren macOS-Versionen. Bei App- und DMG-Builds wird
+die Apple-Silicon-Version direkt in `MiniNotch.app` eingebettet. Der Ziel-Mac
+braucht deshalb kein Homebrew.
 
 ## Datenschutz und Sicherheit
 
-- MiniNotch kommuniziert mit `media-control` nur lokal, um die macOS-Now-Playing-Daten abzufragen und zu steuern.
+- MiniNotch kommuniziert mit dem eingebetteten `media-control` nur lokal, um die macOS-Now-Playing-Daten abzufragen und zu steuern.
 - Die optionale Codex-Ansicht liest nach `codex login` die lokale Datei `~/.codex/auth.json` und fragt damit aktuelle Nutzungsgrenzen ab. Zugangsdaten werden nicht gespeichert, geloggt oder verändert.
 - Das Release-Installationsscript ersetzt ausschließlich `~/Applications/MiniNotch.app` und startet anschließend diese lokale App.
 
