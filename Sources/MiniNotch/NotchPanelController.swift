@@ -10,6 +10,8 @@ final class NotchPanelController {
     private let volumeService: SystemVolumeService
     private let codexUsageService: CodexUsageService
     private let panel: NSPanel
+    private let menuBarCoverPanel: NSPanel
+    private let occlusionService = WindowOcclusionService()
     private var cancellables = Set<AnyCancellable>()
     private var globalMouseMonitor: Any?
     private var localMouseMonitor: Any?
@@ -36,11 +38,19 @@ final class NotchPanelController {
             backing: .buffered,
             defer: false
         )
+        menuBarCoverPanel = NSPanel(
+            contentRect: .zero,
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
 
         configurePanel()
+        configureMenuBarCoverPanel()
         configureView()
         configureObservers()
         configureMouseMonitoring()
+        configureOcclusionMonitoring()
         updateFrame()
     }
 
@@ -61,13 +71,37 @@ final class NotchPanelController {
         // Die Anzeige soll nicht mit den Menüleisten-Items konkurrieren.
         panel.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue - 1)
         panel.animationBehavior = .none
-        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
+        // Die Notch begleitet normale Spaces, darf aber nicht in den Space
+        // einer fremden Vollbild-App wechseln. So bleiben etwa die Safari-
+        // oder Browser-Bedienelemente im Vollbild vollständig erreichbar.
+        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenNone]
         panel.hidesOnDeactivate = false
         panel.isMovable = false
         panel.isReleasedWhenClosed = false
         panel.becomesKeyOnlyIfNeeded = true
         panel.acceptsMouseMovedEvents = true
         panel.ignoresMouseEvents = false
+    }
+
+    private func configureMenuBarCoverPanel() {
+        // Der Bereich bleibt optisch vollständig transparent, fängt aber
+        // weiterhin Mausklicks ab, damit die Menüleiste dort nicht reagiert.
+        menuBarCoverPanel.isOpaque = false
+        menuBarCoverPanel.backgroundColor = .clear
+        menuBarCoverPanel.hasShadow = false
+        // Das transparente Fenster liegt knapp über der macOS-Menüleiste. Es
+        // nimmt Mausklicks entgegen, damit sich darunter keine Menüleiste
+        // öffnen lässt, solange die Notch aufgeklappt ist.
+        menuBarCoverPanel.level = NSWindow.Level(
+            rawValue: NSWindow.Level.statusBar.rawValue + 1
+        )
+        menuBarCoverPanel.animationBehavior = .none
+        menuBarCoverPanel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenNone]
+        menuBarCoverPanel.hidesOnDeactivate = false
+        menuBarCoverPanel.isMovable = false
+        menuBarCoverPanel.isReleasedWhenClosed = false
+        menuBarCoverPanel.becomesKeyOnlyIfNeeded = true
+        menuBarCoverPanel.ignoresMouseEvents = false
     }
 
     private func configureView() {
@@ -119,7 +153,30 @@ final class NotchPanelController {
             }
             .store(in: &cancellables)
 
+        model.$disabledNotchContents
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.updateFrame()
+            }
+            .store(in: &cancellables)
+
+        model.$selectedDisplayID
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.updateFrame()
+            }
+            .store(in: &cancellables)
+
         model.$codexUsage
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.updateFrame()
+            }
+            .store(in: &cancellables)
+
+        model.$isCoveredByFrontmostWindow
+            .removeDuplicates()
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.updateFrame()
@@ -129,6 +186,7 @@ final class NotchPanelController {
         NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
+                self?.model.refreshDisplayOptions()
                 self?.updateFrame()
             }
             .store(in: &cancellables)
@@ -150,6 +208,25 @@ final class NotchPanelController {
             self?.updateHoverState()
             return event
         }
+    }
+
+    private func configureOcclusionMonitoring() {
+        occlusionService.onStateChange = { [weak self] hasAccessibilityPermission, isNotchCovered in
+            guard let self else { return }
+
+            if model.hasAccessibilityPermission != hasAccessibilityPermission {
+                model.hasAccessibilityPermission = hasAccessibilityPermission
+            }
+
+            if model.isCoveredByFrontmostWindow != isNotchCovered {
+                model.isCoveredByFrontmostWindow = isNotchCovered
+            }
+        }
+        occlusionService.start()
+    }
+
+    func requestAccessibilityPermission() {
+        occlusionService.requestAccessibilityPermission()
     }
 
     private func updateHoverState() {
@@ -175,25 +252,48 @@ final class NotchPanelController {
         guard let screen = targetScreen() else { return }
 
         updatePhysicalNotchGeometry(screen: screen)
-        updatePanelLevel(for: screen)
+
+        let presentation = model.presentation
+        updatePanelLevel(for: presentation)
+        let size = panelSize(for: presentation, screen: screen)
+        let frame = NSRect(
+            x: notchCenterX(screen: screen) - size.width / 2,
+            y: panelTopY(on: screen) - size.height,
+            width: size.width,
+            height: size.height
+        )
+
+        // Ausschlaggebend ist ausschließlich die eingeklappte Notch. Wenn
+        // bereits sie ein aktives Fenster überdecken würde, wird MiniNotch
+        // verborgen. Die aufgeklappte Ansicht beeinflusst diese Entscheidung
+        // bewusst nicht.
+        let collapsedSize = panelSize(for: .collapsed, screen: screen)
+        let collapsedFrame = NSRect(
+            x: notchCenterX(screen: screen) - collapsedSize.width / 2,
+            y: panelTopY(on: screen) - collapsedSize.height,
+            width: collapsedSize.width,
+            height: collapsedSize.height
+        )
+
+        // Der gespeicherte Schutzbereich bleibt auch beim Ausblenden erhalten.
+        // Dadurch kann die Prüfung feststellen, wann das Vordergrundfenster
+        // nicht mehr über der Notch liegt und sie wieder erscheinen darf.
+        occlusionService.updateNotchFrame(
+            accessibilityFrame(for: collapsedFrame, on: screen)
+        )
+        occlusionService.refresh()
 
         guard model.shouldShowNotch else {
             if model.isHovered {
                 model.isHovered = false
             }
             panel.orderOut(nil)
+            menuBarCoverPanel.orderOut(nil)
+            displayedPresentation = nil
             return
         }
 
-        let presentation = model.presentation
-        let size = panelSize(for: presentation, screen: screen)
-        let centerX = notchCenterX(screen: screen)
-        let frame = NSRect(
-            x: centerX - size.width / 2,
-            y: panelTopY(on: screen) - size.height,
-            width: size.width,
-            height: size.height
-        )
+        updateMenuBarCover(for: presentation, notchFrame: frame, on: screen)
 
         if !panel.isVisible {
             panel.setFrame(frame, display: true)
@@ -214,6 +314,10 @@ final class NotchPanelController {
     }
 
     private func targetScreen() -> NSScreen? {
+        if let selectedScreen = model.selectedScreen() {
+            return selectedScreen
+        }
+
         let screenWithNotch = NSScreen.screens.first {
             $0.safeAreaInsets.top > 0 &&
             $0.auxiliaryTopLeftArea != nil &&
@@ -251,24 +355,65 @@ final class NotchPanelController {
         model.physicalNotchHeight = max(screen.safeAreaInsets.top, 30)
     }
 
+    private func accessibilityFrame(for frame: NSRect, on screen: NSScreen) -> CGRect {
+        let displayID = (screen.deviceDescription[
+            NSDeviceDescriptionKey("NSScreenNumber")
+        ] as? NSNumber).map { CGDirectDisplayID($0.uint32Value) }
+        let displayFrame = displayID.map(CGDisplayBounds) ?? .zero
+
+        return CGRect(
+            x: displayFrame.minX + (frame.minX - screen.frame.minX),
+            y: displayFrame.minY + (screen.frame.maxY - frame.maxY),
+            width: frame.width,
+            height: frame.height
+        )
+    }
+
     private func panelTopY(on screen: NSScreen) -> CGFloat {
         // Die Oberfläche beginnt direkt an der oberen Bildschirmkante und
         // verbindet sich dadurch ohne sichtbare Stufe mit der Hardware-Notch.
         screen.frame.maxY
     }
 
-    private func updatePanelLevel(for screen: NSScreen) {
-        // Die Menüleiste hat stets Vorrang vor MiniNotch, auch im Bereich der
-        // transparenten seitlichen Flächen des rechteckigen Panel-Fensters.
-        panel.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue - 1)
+    private func updatePanelLevel(for presentation: NotchPresentation) {
+        if presentation == .expanded {
+            // Der sichtbare Notch-Inhalt bleibt über der Abdeckung, die selbst
+            // wiederum die Menüleiste verdeckt.
+            panel.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 2)
+        } else {
+            // Im eingeklappten Zustand haben die macOS-Menüleisten-Items wie
+            // bisher stets Vorrang.
+            panel.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue - 1)
+        }
+    }
+
+    private func updateMenuBarCover(
+        for presentation: NotchPresentation,
+        notchFrame: NSRect,
+        on screen: NSScreen
+    ) {
+        guard presentation == .expanded else {
+            menuBarCoverPanel.orderOut(nil)
+            return
+        }
+
+        let menuBarHeight = max(screen.frame.maxY - screen.visibleFrame.maxY, 24)
+        let frame = NSRect(
+            x: notchFrame.minX,
+            y: screen.frame.maxY - menuBarHeight,
+            width: notchFrame.width,
+            height: menuBarHeight
+        )
+
+        menuBarCoverPanel.setFrame(frame, display: true)
+        menuBarCoverPanel.orderFrontRegardless()
     }
 
     private func notchCenterX(screen: NSScreen) -> CGFloat {
-        if let left = screen.auxiliaryTopLeftArea,
-           let right = screen.auxiliaryTopRightArea {
-            return (left.maxX + right.minX) / 2
-        }
-
+        // Die beiden Safe-Areas können durch Pixelrundung unterschiedlich
+        // breit sein. Auf dem internen MacBook-Display lag ihre gemittelte
+        // Mitte dadurch 1,5 pt (3 Pixel) neben der realen Hardware-Notch.
+        // Die Notch selbst sitzt immer in der geometrischen Bildschirmmitte.
         return screen.frame.midX
     }
 
@@ -278,10 +423,10 @@ final class NotchPanelController {
 
         switch presentation {
         case .collapsed:
-            let defaultCollapsedWidth = min(max(notch + 300, 480), maximumWidth)
-
             return NSSize(
-                width: defaultCollapsedWidth * 0.5,
+                // 185 pt entsprechen auf dem Retina-Display 370 Pixeln und
+                // damit der Breite der physischen MacBook-Notch.
+                width: 185,
                 height: max(model.physicalNotchHeight + 38, 68)
             )
 
@@ -292,7 +437,14 @@ final class NotchPanelController {
             )
 
         case .expanded:
-            let expandedHeight = max(model.physicalNotchHeight + 190, 226)
+            let standardExpandedHeight = max(model.physicalNotchHeight + 190, 226)
+            // Die Mediensteuerung enthält zusätzlich zum Kopfbereich Album,
+            // Transporttasten und Lautstärkeregler. Nach dem neuen
+            // Notch-Übergang ist ihr oberer Freiraum größer; ohne diese Höhe
+            // würde der Regler am unteren Rand anliegen.
+            let expandedHeight = model.notchContent == .media
+                ? standardExpandedHeight + 20
+                : standardExpandedHeight
 
             return NSSize(
                 width: min(max(notch + 440, 600), maximumWidth),

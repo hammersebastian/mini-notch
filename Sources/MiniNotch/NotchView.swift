@@ -11,16 +11,26 @@ struct NotchView: View {
         GeometryReader { _ in
             ZStack {
                 NotchSurfaceShape(
-                    bottomCornerRadius: 22
+                    bottomCornerRadius: 22,
+                    topNotchWidth: model.physicalNotchWidth,
+                    topNotchHeight: notchTopInset,
+                    topNotchTransitionRadius: expandedNotchTransitionRadius,
+                    expansionProgress: model.presentation == .expanded ? 1 : 0
                 )
                 .fill(model.notchBackgroundColor)
+                .animation(
+                    .timingCurve(0.22, 1.0, 0.36, 1.0, duration: 0.26),
+                    value: model.presentation == .expanded
+                )
 
                 switch model.presentation {
                 case .collapsed:
-                    if model.notchContent == .codexUsage {
+                    if model.notchContent == .media {
+                        collapsedView
+                    } else if model.notchContent == .codexUsage {
                         codexCollapsedView
                     } else {
-                        collapsedView
+                        noActiveContentCollapsedView
                     }
                 case .trackPeek:
                     trackPeekView
@@ -36,37 +46,46 @@ struct NotchView: View {
             Color.clear
                 .frame(height: notchTopInset)
 
-            HStack(spacing: 8) {
-                artwork(size: 29)
+            if model.media.hasMedia {
+                HStack(spacing: 8) {
+                    artwork(size: 29)
 
-                VStack(alignment: .leading, spacing: 1) {
-                    MarqueeText(model.media.title, fontSize: 12)
+                    VStack(alignment: .leading, spacing: 1) {
+                        MarqueeText(model.media.title, fontSize: 12)
 
-                    if !model.media.album.isEmpty {
-                        Text(model.media.album)
-                            .font(.system(size: 10, weight: .light))
-                            .foregroundStyle(.white.opacity(0.68))
-                            .lineLimit(1)
-                            .truncationMode(.tail)
+                        if !model.media.album.isEmpty {
+                            Text(model.media.album)
+                                .font(.system(size: 10, weight: .light))
+                                .foregroundStyle(.white.opacity(0.68))
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                        }
                     }
-                }
-                    // Der Lauftext bekommt ausschließlich den Platz links von
-                    // der Equalizer-Animation. Das Clipping muss nach dem
-                    // Layout erfolgen, damit der animierte Inhalt nicht in
-                    // den reservierten Wave-Bereich gezeichnet wird.
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .clipped()
+                        // Der Lauftext bekommt ausschließlich den Platz links von
+                        // der Equalizer-Animation. Das Clipping muss nach dem
+                        // Layout erfolgen, damit der animierte Inhalt nicht in
+                        // den reservierten Wave-Bereich gezeichnet wird.
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .clipped()
 
-                EqualizerView(
-                    playing: model.media.isPlaying,
-                    compact: true,
-                    color: model.waveColor
-                )
-                    .frame(width: 28)
+                    EqualizerView(
+                        playing: model.media.isPlaying,
+                        compact: true,
+                        color: model.waveColor
+                    )
+                        .frame(width: 28)
+                }
+                .padding(.horizontal, 14)
+                .padding(.bottom, 6)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                Label("Keine Medienwiedergabe", systemImage: "music.note.slash")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.68))
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 6)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .padding(.horizontal, 14)
-            .padding(.bottom, 6)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -103,26 +122,35 @@ struct NotchView: View {
     private var expandedContentView: some View {
         VStack(spacing: 10) {
             Color.clear
-                .frame(height: notchTopInset)
+                .frame(height: expandedContentTopInset)
 
-            notchContentSwitcher
-                .frame(maxWidth: .infinity, minHeight: 28)
-                .overlay(alignment: .trailing) {
-                    if model.notchContent == .codexUsage {
-                        refreshCodexButton
-                            .transition(.opacity)
+            if model.enabledNotchContents.count > 1 {
+                notchContentSwitcher
+                    .frame(maxWidth: .infinity, minHeight: 28)
+                    .overlay(alignment: .trailing) {
+                        if model.notchContent == .codexUsage {
+                            refreshCodexButton
+                                .transition(.opacity)
+                        }
                     }
+            } else if model.notchContent == .codexUsage {
+                HStack {
+                    Spacer()
+                    refreshCodexButton
                 }
+                .frame(maxWidth: .infinity, minHeight: 28)
+            }
 
             ZStack(alignment: .top) {
                 if model.notchContent == .media {
                     mediaExpandedContent
-                        .transition(.opacity.combined(with: .scale(scale: 0.98)))
-                } else {
+                } else if model.notchContent == .codexUsage {
                     codexExpandedContent
-                        .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                } else {
+                    noActiveContentExpandedView
                 }
             }
+            .transition(.opacity.combined(with: .scale(scale: 0.98)))
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .animation(.easeInOut(duration: 0.22), value: model.notchContent)
         }
@@ -132,6 +160,16 @@ struct NotchView: View {
     }
 
     private var mediaExpandedContent: some View {
+        Group {
+            if model.media.hasMedia {
+                mediaPlaybackContent
+            } else {
+                emptyMediaExpandedContent
+            }
+        }
+    }
+
+    private var mediaPlaybackContent: some View {
         VStack(spacing: 10) {
             HStack(spacing: 15) {
                 artwork(size: 60)
@@ -207,6 +245,25 @@ struct NotchView: View {
         }
     }
 
+    private var emptyMediaExpandedContent: some View {
+        VStack(spacing: 9) {
+            Image(systemName: "music.note.slash")
+                .font(.system(size: 24, weight: .medium))
+                .foregroundStyle(.white.opacity(0.58))
+
+            Text("Keine Medienwiedergabe")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.82))
+
+            Text("Starte Musik, einen Podcast oder ein Video – dann erscheint es hier.")
+                .font(.system(size: 11))
+                .foregroundStyle(.white.opacity(0.52))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
     private var codexCollapsedView: some View {
         VStack(spacing: 0) {
             Color.clear
@@ -220,11 +277,7 @@ struct NotchView: View {
                         .foregroundStyle(.white.opacity(0.72))
 
                 case .available:
-                    HStack(spacing: 10) {
-                        Image(systemName: "chevron.left.forwardslash.chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.82))
-
+                    HStack(spacing: 8) {
                         codexCompactWindow(label: "5 Std.", window: model.codexUsage.primaryWindow)
 
                         Rectangle()
@@ -241,7 +294,40 @@ struct NotchView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 12)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var noActiveContentCollapsedView: some View {
+        VStack(spacing: 0) {
+            Color.clear
+                .frame(height: notchTopInset)
+
+            Label("Kein Inhalt aktiv", systemImage: "rectangle.slash")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.white.opacity(0.68))
+                .padding(.horizontal, 12)
+                .padding(.bottom, 6)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var noActiveContentExpandedView: some View {
+        VStack(spacing: 9) {
+            Image(systemName: "rectangle.slash")
+                .font(.system(size: 24, weight: .medium))
+                .foregroundStyle(.white.opacity(0.58))
+
+            Text("Kein Inhalt aktiv")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.82))
+
+            Text("Aktiviere mindestens einen Inhalt in den Einstellungen.")
+                .font(.system(size: 11))
+                .foregroundStyle(.white.opacity(0.52))
+                .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -293,27 +379,21 @@ struct NotchView: View {
             Text(label)
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(.white.opacity(0.56))
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
 
             Text(window?.percentageText ?? "—")
                 .font(.system(size: 12, weight: .bold, design: .rounded))
                 .foregroundStyle(usageColor(for: window))
         }
-        .frame(minWidth: 62, alignment: .leading)
+        .fixedSize(horizontal: true, vertical: false)
     }
 
     private var notchContentSwitcher: some View {
         HStack(spacing: 0) {
-            notchContentButton(
-                content: .media,
-                title: "Medien",
-                symbol: "music.note"
-            )
-
-            notchContentButton(
-                content: .codexUsage,
-                title: "Codex",
-                symbol: "chevron.left.forwardslash.chevron.right"
-            )
+            ForEach(model.enabledNotchContents) { content in
+                notchContentButton(content: content)
+            }
         }
         .background(.white.opacity(0.10))
         .clipShape(Capsule())
@@ -336,22 +416,18 @@ struct NotchView: View {
         .help("Codex-Limits aktualisieren")
     }
 
-    private func notchContentButton(
-        content: NotchContent,
-        title: String,
-        symbol: String
-    ) -> some View {
+    private func notchContentButton(content: NotchContent) -> some View {
         let isSelected = model.notchContent == content
 
         return Button {
             withAnimation(.spring(response: 0.32, dampingFraction: 0.80)) {
-                model.notchContent = content
+                model.selectNotchContent(content)
             }
             if content == .codexUsage {
                 codexUsageService.refresh()
             }
         } label: {
-            Image(systemName: symbol)
+            Image(systemName: content.symbol)
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(isSelected ? .black : .white.opacity(0.72))
                 .frame(width: 28, height: 26)
@@ -369,7 +445,7 @@ struct NotchView: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(title) in der Notch anzeigen")
+        .accessibilityLabel("\(content.title) in der Notch anzeigen")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
@@ -454,6 +530,14 @@ struct NotchView: View {
 
     private var notchTopInset: CGFloat {
         max(model.physicalNotchHeight, 26)
+    }
+
+    private var expandedNotchTransitionRadius: CGFloat {
+        min(notchTopInset * 0.45, model.physicalNotchWidth / 2)
+    }
+
+    private var expandedContentTopInset: CGFloat {
+        notchTopInset + expandedNotchTransitionRadius
     }
 
 }

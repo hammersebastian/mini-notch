@@ -28,6 +28,8 @@ rm -rf "$APP_DIR"
 mkdir -p "$MACOS" "$RESOURCES"
 cp "$BIN_DIR/MiniNotch" "$MACOS/MiniNotch"
 cp "$ROOT/Resources/Info.plist" "$CONTENTS/Info.plist"
+cp "$ROOT/Resources/AppIcon.icns" "$RESOURCES/AppIcon.icns"
+cp "$ROOT/Resources/MenuBarIcon.png" "$RESOURCES/MenuBarIcon.png"
 
 chmod +x "$MACOS/MiniNotch"
 

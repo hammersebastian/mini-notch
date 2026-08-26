@@ -1,3 +1,4 @@
+import AppKit
 import Combine
 import Foundation
 import ServiceManagement
@@ -24,6 +25,20 @@ enum NotchContent: String, CaseIterable, Identifiable {
             return "Codex-Limits"
         }
     }
+
+    var symbol: String {
+        switch self {
+        case .media:
+            return "music.note"
+        case .codexUsage:
+            return "chevron.left.forwardslash.chevron.right"
+        }
+    }
+}
+
+struct DisplayOption: Identifiable, Hashable {
+    let id: UInt32
+    let name: String
 }
 
 @MainActor
@@ -31,11 +46,24 @@ final class AppModel: ObservableObject {
     @Published var media = MediaState.empty
     @Published var isHovered = false
     @Published var isPeeking = false
+    @Published var isCoveredByFrontmostWindow = false
+    @Published var hasAccessibilityPermission = false
     @Published var physicalNotchWidth: CGFloat = 190
     @Published var physicalNotchHeight: CGFloat = 32
     @Published var lastError: String?
     @Published var systemVolume: Double = 0.5
     @Published var codexUsage = CodexUsageSnapshot.loading
+    @Published private(set) var displayOptions: [DisplayOption]
+
+    @Published var selectedDisplayID: UInt32? {
+        didSet {
+            if let selectedDisplayID {
+                UserDefaults.standard.set(Int(selectedDisplayID), forKey: Self.selectedDisplayIDKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: Self.selectedDisplayIDKey)
+            }
+        }
+    }
 
     @Published var notchBackgroundColor: Color {
         didSet {
@@ -67,12 +95,28 @@ final class AppModel: ObservableObject {
         }
     }
 
-    @Published var notchContent: NotchContent {
+    @Published var notchContent: NotchContent? {
         didSet {
-            UserDefaults.standard.set(notchContent.rawValue, forKey: "notchContent")
+            if let notchContent {
+                UserDefaults.standard.set(notchContent.rawValue, forKey: Self.notchContentKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: Self.notchContentKey)
+            }
+
             if notchContent == .codexUsage {
                 isPeeking = false
             }
+        }
+    }
+
+    /// Gespeichert werden nur deaktivierte Inhalte. Dadurch sind spätere neue
+    /// Inhaltsarten ohne Migration automatisch verfügbar.
+    @Published private(set) var disabledNotchContents: Set<NotchContent> {
+        didSet {
+            UserDefaults.standard.set(
+                disabledNotchContents.map(\.rawValue),
+                forKey: Self.disabledNotchContentsKey
+            )
         }
     }
 
@@ -88,12 +132,16 @@ final class AppModel: ObservableObject {
     @Published private(set) var launchAtLogin: Bool
 
     private var peekTask: Task<Void, Never>?
+    private var keepsEmptyMediaViewVisible = false
 
     private static let notchBackgroundColorKey = "notchBackgroundColor"
     private static let waveColorKey = "waveColor"
     private static let codexUsageNormalColorKey = "codexUsageNormalColor"
     private static let codexUsageWarningColorKey = "codexUsageWarningColor"
     private static let codexUsageCriticalColorKey = "codexUsageCriticalColor"
+    private static let selectedDisplayIDKey = "selectedDisplayID"
+    private static let notchContentKey = "notchContent"
+    private static let disabledNotchContentsKey = "disabledNotchContents"
 
     private static let defaultNotchBackgroundColor = Color.black
     private static let defaultWaveColor = Color(red: 0.15, green: 0.65, blue: 0.77)
@@ -102,18 +150,27 @@ final class AppModel: ObservableObject {
     private static let defaultCodexUsageCriticalColor = Color.red
 
     init() {
+        let disabledContents = Set(
+            (UserDefaults.standard.stringArray(forKey: Self.disabledNotchContentsKey) ?? [])
+                .compactMap(NotchContent.init(rawValue:))
+        )
+        let storedContent = UserDefaults.standard.string(forKey: Self.notchContentKey)
+            .flatMap(NotchContent.init(rawValue:))
+        let initialContent = storedContent.flatMap { content in
+            disabledContents.contains(content) ? nil : content
+        } ?? NotchContent.allCases.first { !disabledContents.contains($0) }
+
+        displayOptions = Self.currentDisplayOptions()
+        selectedDisplayID = (UserDefaults.standard.object(forKey: Self.selectedDisplayIDKey) as? NSNumber)?.uint32Value
+        disabledNotchContents = disabledContents
+
         if let stored = UserDefaults.standard.object(forKey: "showTrackChangePeek") as? Bool {
             showTrackChangePeek = stored
         } else {
             showTrackChangePeek = true
         }
 
-        if let stored = UserDefaults.standard.string(forKey: "notchContent"),
-           let content = NotchContent(rawValue: stored) {
-            notchContent = content
-        } else {
-            notchContent = .media
-        }
+        notchContent = initialContent
 
         notchBackgroundColor = Self.storedColor(
             forKey: Self.notchBackgroundColorKey,
@@ -144,23 +201,34 @@ final class AppModel: ObservableObject {
             return isHovered ? .expanded : .collapsed
         }
 
+        guard notchContent == .media else {
+            return isHovered ? .expanded : .collapsed
+        }
+
         if isHovered { return .expanded }
         if isPeeking { return .trackPeek }
         return .collapsed
     }
 
     var shouldShowNotch: Bool {
-        switch notchContent {
-        case .media:
-            return media.hasMedia
-        case .codexUsage:
-            return true
-        }
+        guard !isCoveredByFrontmostWindow else { return false }
+        return true
     }
 
     func updateMedia(_ newMedia: MediaState) {
         let previous = media
+
+        // Ist der Medieninhalt aktiv und seine Ansicht nicht ausdrücklich
+        // gewählt, wechseln wir zum nächsten verfügbaren Inhalt.
+        if !newMedia.hasMedia && notchContent == .media && !keepsEmptyMediaViewVisible {
+            notchContent = enabledNotchContents.first { $0 != .media }
+        }
+
         media = newMedia
+
+        if newMedia.hasMedia {
+            keepsEmptyMediaViewVisible = false
+        }
 
         guard newMedia.hasMedia else {
             isPeeking = false
@@ -169,13 +237,66 @@ final class AppModel: ObservableObject {
         }
 
         let changed = previous.hasMedia && previous.trackKey != newMedia.trackKey
-        if changed && showTrackChangePeek {
+        if changed && showTrackChangePeek && notchContent == .media {
             triggerTrackPeek()
         }
     }
 
     func updateCodexUsage(_ usage: CodexUsageSnapshot) {
         codexUsage = usage
+    }
+
+    func selectDisplay(_ displayID: UInt32?) {
+        selectedDisplayID = displayID
+    }
+
+    func refreshDisplayOptions() {
+        displayOptions = Self.currentDisplayOptions()
+    }
+
+    func selectedScreen() -> NSScreen? {
+        guard let selectedDisplayID else { return nil }
+
+        return NSScreen.screens.first { Self.displayID(for: $0) == selectedDisplayID }
+    }
+
+    var isSelectedDisplayUnavailable: Bool {
+        selectedDisplayID != nil && selectedScreen() == nil
+    }
+
+    var enabledNotchContents: [NotchContent] {
+        NotchContent.allCases.filter { !disabledNotchContents.contains($0) }
+    }
+
+    func isNotchContentEnabled(_ content: NotchContent) -> Bool {
+        !disabledNotchContents.contains(content)
+    }
+
+    func setNotchContentEnabled(_ content: NotchContent, isEnabled: Bool) {
+        guard isNotchContentEnabled(content) != isEnabled else { return }
+
+        if isEnabled {
+            disabledNotchContents.remove(content)
+            if notchContent == nil {
+                selectNotchContent(content)
+            }
+        } else {
+            disabledNotchContents.insert(content)
+
+            if notchContent == content {
+                notchContent = enabledNotchContents.first
+                keepsEmptyMediaViewVisible = false
+            }
+        }
+    }
+
+    /// Eine explizite Auswahl darf die leere Medienansicht anzeigen. So kann
+    /// der Tab jederzeit erreichbar bleiben, obwohl gerade nichts läuft.
+    func selectNotchContent(_ content: NotchContent) {
+        guard isNotchContentEnabled(content) else { return }
+
+        notchContent = content
+        keepsEmptyMediaViewVisible = content == .media && !media.hasMedia
     }
 
     func setLaunchAtLogin(_ enabled: Bool) {
@@ -225,6 +346,19 @@ final class AppModel: ObservableObject {
 
     private func storeColor(_ color: Color, forKey key: String) {
         UserDefaults.standard.set(color.hexString, forKey: key)
+    }
+
+    private static func currentDisplayOptions() -> [DisplayOption] {
+        NSScreen.screens.compactMap { screen in
+            guard let displayID = displayID(for: screen) else { return nil }
+
+            let mainScreenSuffix = screen == NSScreen.main ? " (Hauptbildschirm)" : ""
+            return DisplayOption(id: displayID, name: screen.localizedName + mainScreenSuffix)
+        }
+    }
+
+    private static func displayID(for screen: NSScreen) -> UInt32? {
+        (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value
     }
 }
 
