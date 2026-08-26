@@ -59,7 +59,7 @@ Codex-Limits direkt an der Notch an.
 - Titel, Interpret und Cover direkt an der Notch
 - Spotify und andere macOS-Now-Playing-Quellen, z. B. YouTube im Browser
 - Aufgeklappter Player beim Hover – mit Play/Pause, Zurück, Weiter, Timeline und Systemlautstärke
-- Animierter Equalizer und optionales Hervorheben bei Titelwechseln
+- Animierter Equalizer
 - Codex-Limits: 5-Stunden- und Wochenverbrauch mit Restzeit und Rücksetzzeitpunkt
 - Medien- und Codex-Ansicht einzeln aktivierbar
 - Farben für Notch, Wave-Animation und Codex-Status anpassbar

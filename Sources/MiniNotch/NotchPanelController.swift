@@ -127,9 +127,9 @@ final class NotchPanelController {
     }
 
     private func configureObservers() {
-        Publishers.CombineLatest(model.$isHovered, model.$isPeeking)
+        model.$isHovered
             .receive(on: RunLoop.main)
-            .sink { [weak self] _, _ in
+            .sink { [weak self] _ in
                 self?.updateFrame()
             }
             .store(in: &cancellables)
@@ -428,12 +428,6 @@ final class NotchPanelController {
                 // damit der Breite der physischen MacBook-Notch.
                 width: 185,
                 height: max(model.physicalNotchHeight + 38, 68)
-            )
-
-        case .trackPeek:
-            return NSSize(
-                width: min(max(notch + 470, 620), maximumWidth),
-                height: 82
             )
 
         case .expanded:

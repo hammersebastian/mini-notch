@@ -80,13 +80,12 @@ Die App liegt danach unter `build/MiniNotch.app`.
 1. Spotify starten und Musik abspielen.
 2. Prüfen, ob Cover, Titel/Interpret und Player-Anzeige an der Notch erscheinen.
 3. Über die Notch fahren und Play/Pause, Zurück, Weiter, Timeline und Lautstärke testen.
-4. Titel in Spotify wechseln und das optionale Hervorheben prüfen.
-5. Menüleisten-Icon → **Einstellungen …** öffnen.
-6. Medien und Codex-Limits einzeln aktivieren und deaktivieren.
-7. In der erweiterten Codex-Ansicht Fortschrittsbalken, Restzeit und Rücksetzzeitpunkt prüfen.
-8. Farben, Autostart und **Neuen Titel kurz hervorheben** testen.
-9. Unter **Automatisches Ausblenden** den Zugriff anfordern und das Überdecken der Notch durch ein aktives Fenster testen.
-10. Spotify/Browser schließen und prüfen, ob die Medienansicht verschwindet.
+4. Menüleisten-Icon → **Einstellungen …** öffnen.
+5. Medien und Codex-Limits einzeln aktivieren und deaktivieren.
+6. In der erweiterten Codex-Ansicht Fortschrittsbalken, Restzeit und Rücksetzzeitpunkt prüfen.
+7. Farben und Autostart testen.
+8. Unter **Automatisches Ausblenden** den Zugriff anfordern und das Überdecken der Notch durch ein aktives Fenster testen.
+9. Spotify/Browser schließen und prüfen, ob die Medienansicht verschwindet.
 
 ## Lokale Release-App
 

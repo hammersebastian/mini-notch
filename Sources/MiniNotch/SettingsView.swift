@@ -58,14 +58,6 @@ struct SettingsView: View {
                 }
             }
 
-            Section("Wiedergabe") {
-                Toggle("Neuen Titel kurz hervorheben", isOn: $model.showTrackChangePeek)
-
-                Text("Beim Titelwechsel wird die Notch für ca. 2,8 Sekunden größer und zeigt den neuen Song deutlicher an.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
             Section("Automatisches Ausblenden") {
                 if model.hasAccessibilityPermission {
                     Label(

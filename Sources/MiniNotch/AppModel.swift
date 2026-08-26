@@ -7,7 +7,6 @@ import SwiftUI
 @MainActor
 enum NotchPresentation: Equatable {
     case collapsed
-    case trackPeek
     case expanded
 }
 
@@ -45,7 +44,6 @@ struct DisplayOption: Identifiable, Hashable {
 final class AppModel: ObservableObject {
     @Published var media = MediaState.empty
     @Published var isHovered = false
-    @Published var isPeeking = false
     @Published var isCoveredByFrontmostWindow = false
     @Published var hasAccessibilityPermission = false
     @Published var physicalNotchWidth: CGFloat = 190
@@ -103,9 +101,6 @@ final class AppModel: ObservableObject {
                 UserDefaults.standard.removeObject(forKey: Self.notchContentKey)
             }
 
-            if notchContent == .codexUsage {
-                isPeeking = false
-            }
         }
     }
 
@@ -120,18 +115,8 @@ final class AppModel: ObservableObject {
         }
     }
 
-    @Published var showTrackChangePeek: Bool {
-        didSet {
-            UserDefaults.standard.set(showTrackChangePeek, forKey: "showTrackChangePeek")
-            if !showTrackChangePeek {
-                isPeeking = false
-            }
-        }
-    }
-
     @Published private(set) var launchAtLogin: Bool
 
-    private var peekTask: Task<Void, Never>?
     private var keepsEmptyMediaViewVisible = false
 
     private static let notchBackgroundColorKey = "notchBackgroundColor"
@@ -164,12 +149,6 @@ final class AppModel: ObservableObject {
         selectedDisplayID = (UserDefaults.standard.object(forKey: Self.selectedDisplayIDKey) as? NSNumber)?.uint32Value
         disabledNotchContents = disabledContents
 
-        if let stored = UserDefaults.standard.object(forKey: "showTrackChangePeek") as? Bool {
-            showTrackChangePeek = stored
-        } else {
-            showTrackChangePeek = true
-        }
-
         notchContent = initialContent
 
         notchBackgroundColor = Self.storedColor(
@@ -197,17 +176,7 @@ final class AppModel: ObservableObject {
     }
 
     var presentation: NotchPresentation {
-        if notchContent == .codexUsage {
-            return isHovered ? .expanded : .collapsed
-        }
-
-        guard notchContent == .media else {
-            return isHovered ? .expanded : .collapsed
-        }
-
-        if isHovered { return .expanded }
-        if isPeeking { return .trackPeek }
-        return .collapsed
+        isHovered ? .expanded : .collapsed
     }
 
     var shouldShowNotch: Bool {
@@ -216,8 +185,6 @@ final class AppModel: ObservableObject {
     }
 
     func updateMedia(_ newMedia: MediaState) {
-        let previous = media
-
         // Ist der Medieninhalt aktiv und seine Ansicht nicht ausdrücklich
         // gewählt, wechseln wir zum nächsten verfügbaren Inhalt.
         if !newMedia.hasMedia && notchContent == .media && !keepsEmptyMediaViewVisible {
@@ -228,17 +195,6 @@ final class AppModel: ObservableObject {
 
         if newMedia.hasMedia {
             keepsEmptyMediaViewVisible = false
-        }
-
-        guard newMedia.hasMedia else {
-            isPeeking = false
-            peekTask?.cancel()
-            return
-        }
-
-        let changed = previous.hasMedia && previous.trackKey != newMedia.trackKey
-        if changed && showTrackChangePeek && notchContent == .media {
-            triggerTrackPeek()
         }
     }
 
@@ -323,17 +279,6 @@ final class AppModel: ObservableObject {
         codexUsageNormalColor = Self.defaultCodexUsageNormalColor
         codexUsageWarningColor = Self.defaultCodexUsageWarningColor
         codexUsageCriticalColor = Self.defaultCodexUsageCriticalColor
-    }
-
-    private func triggerTrackPeek() {
-        peekTask?.cancel()
-        isPeeking = true
-
-        peekTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: 2_800_000_000)
-            guard !Task.isCancelled else { return }
-            self?.isPeeking = false
-        }
     }
 
     private static func storedColor(forKey key: String, default defaultColor: Color) -> Color {

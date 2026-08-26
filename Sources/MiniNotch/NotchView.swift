@@ -32,8 +32,6 @@ struct NotchView: View {
                     } else {
                         noActiveContentCollapsedView
                     }
-                case .trackPeek:
-                    trackPeekView
                 case .expanded:
                     expandedContentView
                 }
@@ -88,35 +86,6 @@ struct NotchView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var trackPeekView: some View {
-        VStack(spacing: 5) {
-            Color.clear
-                .frame(height: notchTopInset)
-
-            HStack(spacing: 12) {
-                artwork(size: 48)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(model.media.title)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-
-                    Text(model.media.artist)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.62))
-                        .lineLimit(1)
-                }
-
-                Spacer()
-                EqualizerView(playing: model.media.isPlaying, color: model.waveColor)
-            }
-            .padding(.horizontal, 18)
-
-            Spacer(minLength: 8)
-        }
     }
 
     private var expandedContentView: some View {
