@@ -6,7 +6,15 @@
 
 <p align="center"><strong>Now Playing und Codex-Limits direkt in der MacBook-Notch.</strong></p>
 
-Kleine native macOS-App für die MacBook-Notch. Sie zeigt die aktuell aktive System-Medienquelle an – primär Spotify, aber auch Browser/YouTube, wenn macOS die Wiedergabe als Now Playing meldet.
+<p align="center">
+  <a href="https://github.com/hammersebastian/mini-notch/releases/latest">DMG herunterladen</a>
+  ·
+  <a href="docs/DEVELOPMENT.md">Für Entwickler</a>
+</p>
+
+MiniNotch ist eine native Menüleisten-App für MacBooks mit Notch. Sie zeigt
+aktuell laufende Medien – etwa Spotify oder YouTube im Browser – sowie deine
+Codex-Limits direkt an der Notch an.
 
 ## Vorschau
 
@@ -46,333 +54,67 @@ Kleine native macOS-App für die MacBook-Notch. Sie zeigt die aktuell aktive Sys
   </tr>
 </table>
 
-## Funktionen in V0.1
+## Funktionen
 
 - Titel, Interpret und Cover direkt an der Notch
 - Spotify und andere macOS-Now-Playing-Quellen, z. B. YouTube im Browser
-- Hover: größere Player-Ansicht
-- Play/Pause, vorheriger und nächster Titel
-- anklick-/ziehbare Timeline zum Spulen
-- Systemlautstärke
-- animierter Equalizer
-- beim Titelwechsel optional für ca. 2,8 Sekunden größere Notch
-- einzeln aktivierbare Medien- und Codex-Ansichten
-- Codex-Limits: 5-Stunden- und Wochenverbrauch in Prozent
-- anpassbare Farben für Notch, Wave-Animation und Codex-Status
-- Menüleisten-App ohne Dock-Icon
-- optionale Anmeldung beim Login
-- automatische Ausblendung, wenn das aktive Fenster die Notch überdeckt
-- wenn keine Medienquelle gemeldet wird, ist MiniNotch unsichtbar
-
-## Lokal installieren
-
-Diese Anleitung installiert und baut MiniNotch aus dem Quellcode. Die erzeugte
-App ist für Apple-Silicon-Macs mit macOS 14 oder neuer ausgelegt.
-
-## MiniNotch über die DMG installieren
-
-Die Release-DMG ist für **Apple Silicon** und macOS 14 oder neuer. Der Ziel-Mac
-braucht dafür weder Xcode, Homebrew noch `media-control`:
-
-1. `MiniNotch-x.y.z-arm64.dmg` herunterladen und mit Doppelklick öffnen.
-2. `MiniNotch.app` in den Ordner **Applications** ziehen.
-3. MiniNotch aus **Programme** starten.
-
-`media-control` und sein MediaRemote-Adapter liegen innerhalb der App. Ohne
-Apple-Developer-ID-Signatur kann macOS beim ersten Start einen Gatekeeper-Hinweis
-zeigen; dann MiniNotch im Finder mit Rechtsklick → **Öffnen** starten.
-
-### Voraussetzungen
-
-Du brauchst **nicht die komplette Xcode-App**. Für den Build reichen normalerweise:
-
-1. macOS 14 oder neuer
-2. Apple Command Line Tools mit Swift
-3. Git
-4. Homebrew
-5. optional: VS Code zum Bearbeiten und Debuggen
-6. `media-control` (wird durch das Setup-Script installiert)
-
-### Apple Command Line Tools
-
-Falls `swift --version` im Terminal nicht funktioniert:
-
-```bash
-xcode-select --install
-```
-
-Danach das Installationsfenster von macOS abschließen.
-
-### Homebrew
-
-Falls `brew --version` noch nicht funktioniert, Homebrew nach der offiziellen Anleitung installieren: <https://brew.sh>. Anschließend das Terminal neu öffnen.
-
-Git wird normalerweise bereits mit den Apple Command Line Tools installiert. Falls nicht, kann es über Homebrew installiert werden:
-
-```bash
-brew install git
-```
-
-### Repository herunterladen
-
-Im Terminal einen gewünschten Zielordner wählen und das Repository klonen:
-
-```bash
-git clone https://github.com/hammersebastian/mini-notch.git
-cd mini-notch
-```
-
-Für private Repositories muss GitHub für HTTPS authentifiziert sein, beispielsweise mit der [GitHub-CLI](https://cli.github.com/):
-
-```bash
-gh auth login
-```
-
-Danach den `git clone`-Befehl erneut ausführen.
-
-### VS Code
-
-Beim Öffnen des Projekts empfiehlt VS Code automatisch:
-
-- Swift
-- CodeLLDB
-
-Die Swift-Erweiterung ist für normales Bearbeiten/Fehleranzeige ausreichend. CodeLLDB ist nur fürs Debugging nötig.
-
-## Schnellstart
-
-### 1. Optional: in VS Code öffnen
-
-Im Terminal:
-
-```bash
-cd /Pfad/zu/mini-notch
-code .
-```
-
-Oder in VS Code: **File → Open Folder… → MiniNotch**.
-
-### 2. Setup ausführen
-
-Im integrierten VS-Code-Terminal:
-
-```bash
-./scripts/setup.sh
-```
-
-Das Script prüft Swift und Homebrew und installiert `media-control`, falls es noch fehlt. Es verändert keine Systemeinstellungen außerhalb der Homebrew-Installation.
-
-Alternativ in VS Code:
-
-**Terminal → Run Task… → MiniNotch: Setup**
-
-### 3. Medienerkennung separat testen
-
-Spotify starten und einen Song abspielen. Dann:
-
-```bash
-./scripts/test-media.sh
-```
-
-Es sollten JSON-Zeilen mit u. a. `title`, `artist`, `playing` und meist `artworkData` erscheinen.
-
-Jetzt zusätzlich YouTube in Safari/Chrome ausprobieren. Wenn der Browser die Media Session an macOS meldet, wechselt die Ausgabe auf das Video.
-
-Mit `Ctrl+C` beenden.
-
-### 4. App bauen und starten
-
-```bash
-./scripts/dev.sh
-```
-
-Oder in VS Code einfach:
-
-**Terminal → Run Build Task…**
-
-Shortcut: `⇧⌘B`
-
-Das erzeugt:
-
-```text
-build/MiniNotch.app
-```
-
-und öffnet die App direkt.
-
-## So testest du die Funktionen
-
-1. Spotify starten und Musik abspielen.
-2. Oben an der echten MacBook-Notch sollten Cover, Titel/Interpret und die Player-Anzeige erscheinen.
-3. Mit der Maus über die Notch fahren: sie klappt nach unten auf.
-4. Play/Pause, Zurück und Weiter anklicken.
-5. In der Timeline klicken oder ziehen, um zu spulen.
-6. Lautstärkeregler bewegen.
-7. In Spotify zum nächsten Song springen. Die Notch sollte ca. 2,8 Sekunden größer werden.
-8. Menüleisten-Icon → **Einstellungen …**.
-9. Unter **Notch-Anzeige** die Inhalte **Medien** und **Codex-Limits** aktivieren oder deaktivieren. Bei nur einem aktiven Inhalt wird die Auswahlleiste ausgeblendet; ohne aktive Inhalte erscheint ein Hinweis.
-10. Sind beide Inhalte aktiv, über die Notch fahren und oben direkt zwischen **Medien** und **Codex** wechseln. Die Codex-Ansicht zeigt das 5-Stunden- und Wochenlimit; beim Hover erscheinen Fortschrittsbalken sowie die verbleibende Zeit und der genaue Rücksetzzeitpunkt.
-11. **Neuen Titel kurz hervorheben** aus- und wieder einschalten.
-12. Spotify/Browser komplett schließen. In der Medienansicht erscheint dann der Hinweis, dass keine Wiedergabe aktiv ist.
-13. Für die automatische Ausblendung in **Einstellungen … → Automatisches Ausblenden** auf **Zugriff anfordern** klicken und MiniNotch erlauben. Überlappt anschließend das aktive Fenster die Notch, wird sie ausgeblendet und erscheint nach Ende der Überschneidung wieder.
-
-## Release lokal installieren
-
-Wenn alles funktioniert:
-
-```bash
-./scripts/install-app.sh
-```
-
-Das baut eine Release-Version und kopiert sie nach:
-
-```text
-~/Applications/MiniNotch.app
-```
-
-Anschließend kannst du in den MiniNotch-Einstellungen **Beim Anmelden starten** aktivieren.
-
-## Release-DMG erstellen
-
-Auf dem **Build-Mac** werden die Apple Command Line Tools, Homebrew und einmalig
-`media-control` benötigt. Auf dem Mac, auf dem die DMG installiert wird, nicht.
-
-```bash
-brew install media-control
-./scripts/create-dmg.sh
-```
-
-Das Script baut ausschließlich für Apple Silicon, bettet `media-control` samt
-MediaRemote-Adapter ein und erzeugt:
-
-```text
-build/releases/MiniNotch-0.1.0-arm64.dmg
-```
-
-Die DMG enthält einen Applications-Shortcut und die Datei `THIRD_PARTY.md` mit
-den Lizenzhinweisen. Für eine öffentliche Verteilung ohne Gatekeeper-Warnung
-kann der Build-Mac mit einer Developer-ID signieren, beispielsweise:
-
-```bash
-CODE_SIGN_IDENTITY="Developer ID Application: Dein Name (TEAMID)" ./scripts/create-dmg.sh
-```
-
-Danach muss die erzeugte DMG noch bei Apple notarisert werden.
-
-## Aktualisieren
-
-In den lokalen Repository-Ordner wechseln, Änderungen abrufen und die App erneut installieren:
-
-```bash
-cd /Pfad/zu/mini-notch
-git pull --ff-only
-./scripts/install-app.sh
-```
-
-Falls sich Abhängigkeiten geändert haben, vorher noch einmal `./scripts/setup.sh` ausführen.
-
-## VS-Code-Tasks
-
-`⇧⌘P` → `Tasks: Run Task`:
-
-- **MiniNotch: Setup** – Abhängigkeiten prüfen/installieren
-- **MiniNotch: Build + Start** – Debug-App bauen und starten
-- **MiniNotch: Test Media** – rohe Now-Playing-Daten anzeigen
-- **MiniNotch: Release installieren** – lokale Release-App installieren
-
-## Projektstruktur
-
-```text
-MiniNotch/
-├── .vscode/
-├── Resources/
-│   ├── AppIcon.icns
-│   ├── AppIcon.png
-│   ├── Info.plist
-│   └── MenuBarIcon.png
-├── Sources/MiniNotch/
-│   ├── AppDelegate.swift
-│   ├── AppModel.swift
-│   ├── EqualizerView.swift
-│   ├── MediaControlService.swift
-│   ├── MediaState.swift
-│   ├── MiniNotchApp.swift
-│   ├── NotchPanelController.swift
-│   ├── NotchView.swift
-│   ├── SeekBar.swift
-│   ├── SettingsView.swift
-│   ├── SystemVolumeService.swift
-│   └── WindowOcclusionService.swift
-├── docs/
-│   ├── codex-compact.png
-│   ├── codex-expanded.png
-│   ├── media-compact.png
-│   ├── media-expanded.png
-│   ├── settings-appearance.png
-│   └── settings-content.png
-├── scripts/
-├── THIRD_PARTY.md
-├── Package.swift
-└── README.md
-```
-
-## Hinweise
-
-### YouTube wird nicht erkannt
-
-MiniNotch liest die System-Now-Playing-Quelle. Browser und Webseiten müssen ihre Wiedergabe an macOS melden. Spotify funktioniert in der Regel am zuverlässigsten. YouTube funktioniert bei Browsern mit Media-Session-Unterstützung häufig ebenfalls.
-
-### Cover erscheint verzögert
-
-Das ist normal. Die MediaRemote-Metadaten können das Artwork etwas später liefern als den Titel.
-
-### Spulen funktioniert bei einem Player nicht
-
-`media-control seek` hängt davon ab, ob die aktuelle Medien-App Seeking über MediaRemote akzeptiert. Spotify funktioniert meist besser als manche Browser/Player.
-
-### Autostart schlägt im Entwicklungsbuild fehl
-
-Installiere die App zuerst mit:
-
-```bash
-./scripts/install-app.sh
-```
-
-und aktiviere Autostart dann aus `~/Applications/MiniNotch.app`.
-
-### App nach macOS-Update plötzlich ohne Medien
-
-MiniNotch einmal beenden und erneut starten. Zusätzlich prüfen:
-
-```bash
-media-control get
-```
-
-### `swift build` meldet eine nicht unterstützte SDK- oder Compiler-Version
-
-Die Apple Command Line Tools passen dann nicht zu der installierten macOS-Version. Die Tools über **Systemeinstellungen → Allgemein → Softwareupdate** aktualisieren. Falls danach weiterhin ein Fehler erscheint, die Command Line Tools mit dem macOS-Installer neu installieren lassen:
-
-```bash
-xcode-select --install
-```
-
-Danach das Terminal neu starten und `./scripts/setup.sh` erneut ausführen.
-
-## Aktueller technischer Aufbau
-
-MiniNotch verwendet `media-control` inklusive MediaRemote-Adapter für aktuelle
-Now-Playing-Daten auch auf neueren macOS-Versionen. Bei App- und DMG-Builds wird
-die Apple-Silicon-Version direkt in `MiniNotch.app` eingebettet. Der Ziel-Mac
-braucht deshalb kein Homebrew.
-
-## Datenschutz und Sicherheit
-
-- MiniNotch kommuniziert mit dem eingebetteten `media-control` nur lokal, um die macOS-Now-Playing-Daten abzufragen und zu steuern.
-- Die optionale Codex-Ansicht liest nach `codex login` die lokale Datei `~/.codex/auth.json` und fragt damit aktuelle Nutzungsgrenzen ab. Zugangsdaten werden nicht gespeichert, geloggt oder verändert.
-- Das Release-Installationsscript ersetzt ausschließlich `~/Applications/MiniNotch.app` und startet anschließend diese lokale App.
+- Aufgeklappter Player beim Hover – mit Play/Pause, Zurück, Weiter, Timeline und Systemlautstärke
+- Animierter Equalizer und optionales Hervorheben bei Titelwechseln
+- Codex-Limits: 5-Stunden- und Wochenverbrauch mit Restzeit und Rücksetzzeitpunkt
+- Medien- und Codex-Ansicht einzeln aktivierbar
+- Farben für Notch, Wave-Animation und Codex-Status anpassbar
+- Menüleisten-App ohne Dock-Icon, optionaler Start bei der Anmeldung
+- Automatisches Ausblenden, wenn ein aktives Fenster die Notch überdeckt
+- Ist keine Medienquelle aktiv, bleibt die Medienansicht unsichtbar
+
+## Installieren
+
+MiniNotch benötigt einen Apple-Silicon-Mac mit macOS 14 oder neuer und eine
+MacBook-Notch. Xcode, Homebrew und ein Terminal sind auf dem Ziel-Mac nicht
+erforderlich.
+
+1. Öffne die [aktuelle Version auf GitHub Releases](https://github.com/hammersebastian/mini-notch/releases/latest) und lade `MiniNotch-x.y.z-arm64.dmg` herunter.
+2. Öffne die heruntergeladene DMG mit Doppelklick.
+3. Ziehe `MiniNotch.app` in den darin angezeigten Ordner **Applications**.
+4. Starte MiniNotch aus **Programme**.
+
+Die DMG enthält alle für die Medienerkennung benötigten Komponenten. Falls die
+DMG noch nicht mit einer Apple Developer ID signiert und notarisiert ist, kann
+macOS beim ersten Start einen Hinweis anzeigen. Öffne MiniNotch in diesem Fall
+im Finder mit Rechtsklick → **Öffnen**.
+
+## Erste Schritte
+
+Starte Spotify oder spiele ein Video in einem Browser mit Media-Session-
+Unterstützung ab. Sobald macOS eine Now-Playing-Quelle meldet, erscheint
+MiniNotch an der Notch. Fahre mit der Maus darüber, um die Player-Ansicht zu
+öffnen.
+
+Über das Menüleisten-Icon öffnest du die Einstellungen und kannst Medien,
+Codex-Limits, Farben, Autostart und das automatische Ausblenden anpassen. Für
+das automatische Ausblenden fordert MiniNotch beim Aktivieren den benötigten
+Bedienungshilfen-Zugriff an.
 
 ### Codex-Limits
 
-Für die Codex-Anzeige muss auf dem Mac einmal `codex login` ausgeführt worden sein. MiniNotch liest danach ausschließlich die lokale Datei `~/.codex/auth.json` und ruft damit die aktuellen 5-Stunden- und Wochenlimits von ChatGPT ab. Zugangsdaten werden weder gespeichert noch geloggt oder verändert. Die Anzeige aktualisiert sich beim Start, beim Wechsel auf die Codex-Ansicht, auf Knopfdruck und danach alle fünf Minuten.
+Für die Codex-Ansicht muss auf dem Mac einmal `codex login` ausgeführt worden
+sein. MiniNotch liest dafür ausschließlich die lokale Datei
+`~/.codex/auth.json`, fragt die aktuellen Limits ab und speichert oder verändert
+deine Zugangsdaten nicht.
 
-Der dafür verwendete Usage-Endpunkt ist derzeit nicht öffentlich dokumentiert und kann sich daher durch OpenAI ändern.
+## Hinweise
+
+- Browser und Webseiten müssen ihre Wiedergabe an macOS melden. Spotify ist in
+  der Regel am zuverlässigsten; YouTube funktioniert in unterstützten Browsern
+  häufig ebenfalls.
+- Cover können etwas später als Titel und Interpret erscheinen, weil macOS die
+  MediaRemote-Metadaten zeitversetzt bereitstellt.
+- Die Steuerung zum Spulen hängt von der jeweiligen Medien-App ab.
+
+## Entwickeln und veröffentlichen
+
+Anleitung für lokales Setup, Tests, Release-DMGs, Signierung, Notarisierung und
+Projektstruktur: [Developer README](docs/DEVELOPMENT.md).
+
+Die Lizenzhinweise für die in der DMG enthaltenen Drittanbieter-Komponenten
+stehen in [THIRD_PARTY.md](THIRD_PARTY.md).
