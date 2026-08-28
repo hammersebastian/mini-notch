@@ -1,6 +1,5 @@
 import AppKit
 import Combine
-import QuartzCore
 import SwiftUI
 
 @MainActor
@@ -15,11 +14,10 @@ final class NotchPanelController {
     private var cancellables = Set<AnyCancellable>()
     private var globalMouseMonitor: Any?
     private var localMouseMonitor: Any?
-    private var displayedPresentation: NotchPresentation?
+    private var pendingHoverExit: DispatchWorkItem?
+    private lazy var panelAnimator = NotchPanelAnimator(panel: panel)
 
-    // Die kurze Ease-out-Kurve lässt die Notch direkt reagieren, ohne dass der
-    // Größenwechsel beim Hover hart in den Bildschirm springt.
-    private let presentationAnimationDuration: TimeInterval = 0.26
+    private let hoverExitDelay: TimeInterval = 0.10
 
     init(
         model: AppModel,
@@ -62,6 +60,8 @@ final class NotchPanelController {
         if let localMouseMonitor {
             NSEvent.removeMonitor(localMouseMonitor)
         }
+
+        pendingHoverExit?.cancel()
     }
 
     private func configurePanel() {
@@ -231,7 +231,15 @@ final class NotchPanelController {
 
     private func updateHoverState() {
         let mouseLocation = NSEvent.mouseLocation
-        let panelFrame = panel.frame
+        guard let screen = targetScreen() else { return }
+
+        // Ist die Notch wegen eines überlagernden Vordergrundfensters komplett
+        // ausgeblendet, existiert kein sichtbarer Panel-Rahmen als Hover-Zone.
+        // In diesem Fall dient allein die tatsächliche Hardware-Notch als
+        // unsichtbarer Hotspot, über den die Notch wieder aufgeklappt wird.
+        let hoverFrame = panel.isVisible
+            ? panel.frame
+            : physicalNotchFrame(on: screen)
 
         // Die obere Kante der echten Notch liegt direkt am Bildschirmrand.
         // Erreicht der Zeiger exakt diese Kante (oder wechselt auf einen darüber
@@ -240,18 +248,41 @@ final class NotchPanelController {
         // Hover-Zone deshalb offen; seitlich und unterhalb gilt weiterhin der
         // normale Ausstieg.
         let isWithinHorizontalBounds =
-            mouseLocation.x >= panelFrame.minX && mouseLocation.x <= panelFrame.maxX
-        let isAtOrAbovePanel = mouseLocation.y >= panelFrame.minY
+            mouseLocation.x >= hoverFrame.minX && mouseLocation.x <= hoverFrame.maxX
+        let isAtOrAbovePanel = mouseLocation.y >= hoverFrame.minY
         let isHoveringPanel = panel.isVisible && isWithinHorizontalBounds && isAtOrAbovePanel
 
-        guard model.isHovered != isHoveringPanel else { return }
-        model.isHovered = isHoveringPanel
+        let isHoveringHotspot = !panel.isVisible && hoverFrame.contains(mouseLocation)
+        let isHoveringNotch = isHoveringPanel || isHoveringHotspot
+
+        if isHoveringNotch {
+            pendingHoverExit?.cancel()
+            pendingHoverExit = nil
+
+            guard !model.isHovered else { return }
+            model.isHovered = true
+            return
+        }
+
+        guard model.isHovered, pendingHoverExit == nil else { return }
+
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.pendingHoverExit = nil
+            self.model.isHovered = false
+        }
+        pendingHoverExit = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + hoverExitDelay, execute: workItem)
     }
 
     private func updateFrame() {
         guard let screen = targetScreen() else { return }
 
         updatePhysicalNotchGeometry(screen: screen)
+
+        // Ein Hover über die physische Notch darf die ansonsten wegen einer
+        // Fensterüberdeckung ausgeblendete Ansicht gezielt wieder öffnen.
+        let shouldDisplayPanel = model.shouldShowNotch || model.isHovered
 
         let presentation = model.presentation
         updatePanelLevel(for: presentation)
@@ -283,28 +314,36 @@ final class NotchPanelController {
         )
         occlusionService.refresh()
 
-        guard model.shouldShowNotch else {
+        guard shouldDisplayPanel else {
             if model.isHovered {
                 model.isHovered = false
             }
-            panel.orderOut(nil)
             menuBarCoverPanel.orderOut(nil)
-            displayedPresentation = nil
+
+            if panel.isVisible {
+                panelAnimator.animate(
+                    to: physicalNotchFrame(on: screen),
+                    alpha: 0
+                ) { [weak self] in
+                    guard let self, !self.model.shouldShowNotch, !self.model.isHovered else {
+                        self?.updateFrame()
+                        return
+                    }
+                    self.panel.orderOut(nil)
+                }
+            }
             return
         }
 
         updateMenuBarCover(for: presentation, notchFrame: frame, on: screen)
 
         if !panel.isVisible {
-            panel.setFrame(frame, display: true)
+            panelAnimator.set(frame: physicalNotchFrame(on: screen), alpha: 0)
             panel.orderFrontRegardless()
-        } else if displayedPresentation != presentation {
-            animatePanel(to: frame)
+            panelAnimator.animate(to: frame, alpha: 1)
         } else {
-            panel.setFrame(frame, display: true)
+            panelAnimator.animate(to: frame, alpha: 1)
         }
-
-        displayedPresentation = presentation
 
         // Falls der Zeiger bereits an der Notch steht, muss die Ansicht direkt
         // aufklappen, auch wenn seit dem Einblenden kein Mausereignis ankommt.
@@ -329,19 +368,6 @@ final class NotchPanelController {
         }
 
         return screenWithNotch ?? screenUnderPointer ?? NSScreen.main ?? NSScreen.screens.first
-    }
-
-    private func animatePanel(to frame: NSRect) {
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = presentationAnimationDuration
-            context.timingFunction = CAMediaTimingFunction(
-                controlPoints: 0.22,
-                1.0,
-                0.36,
-                1.0
-            )
-            panel.animator().setFrame(frame, display: true)
-        }
     }
 
     private func updatePhysicalNotchGeometry(screen: NSScreen) {
@@ -373,6 +399,15 @@ final class NotchPanelController {
         // Die Oberfläche beginnt direkt an der oberen Bildschirmkante und
         // verbindet sich dadurch ohne sichtbare Stufe mit der Hardware-Notch.
         screen.frame.maxY
+    }
+
+    private func physicalNotchFrame(on screen: NSScreen) -> NSRect {
+        NSRect(
+            x: notchCenterX(screen: screen) - model.physicalNotchWidth / 2,
+            y: panelTopY(on: screen) - model.physicalNotchHeight,
+            width: model.physicalNotchWidth,
+            height: model.physicalNotchHeight
+        )
     }
 
     private func updatePanelLevel(for presentation: NotchPresentation) {
@@ -436,9 +471,8 @@ final class NotchPanelController {
             // Transporttasten und Lautstärkeregler. Nach dem neuen
             // Notch-Übergang ist ihr oberer Freiraum größer; ohne diese Höhe
             // würde der Regler am unteren Rand anliegen.
-            let expandedHeight = model.notchContent == .media
-                ? standardExpandedHeight + 20
-                : standardExpandedHeight
+            let mediaControlsHeight: CGFloat = model.notchContent == .media ? 20 : 0
+            let expandedHeight = standardExpandedHeight + mediaControlsHeight
 
             return NSSize(
                 width: min(max(notch + 440, 600), maximumWidth),

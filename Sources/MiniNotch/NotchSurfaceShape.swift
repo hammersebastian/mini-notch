@@ -31,6 +31,22 @@ struct NotchSurfaceShape: Shape {
 
     func path(in rect: CGRect) -> Path {
         let progress = min(max(expansionProgress, 0), 1)
+        let bottomRadius = min(bottomCornerRadius, rect.height / 2, rect.width / 2)
+
+        // Im kompakten Endzustand verwenden wir die Systemform direkt. Das
+        // garantiert eine sauber gerundete Unterkante, auch nachdem der
+        // umgebende NSPanel-Rahmen selbst animiert wurde.
+        if progress == 0 {
+            return UnevenRoundedRectangle(
+                topLeadingRadius: 0,
+                bottomLeadingRadius: bottomRadius,
+                bottomTrailingRadius: bottomRadius,
+                topTrailingRadius: 0,
+                style: .continuous
+            )
+            .path(in: rect)
+        }
+
         let expandedNotchWidth = min(max(topNotchWidth, 0), rect.width)
         let notchWidth = rect.width + (expandedNotchWidth - rect.width) * progress
         let notchHeight = min(topNotchHeight * progress, rect.height)
@@ -50,8 +66,6 @@ struct NotchSurfaceShape: Shape {
             (rect.height - containerTopY) / 2,
             rect.width / 2
         ) * progress
-        let bottomRadius = min(bottomCornerRadius, rect.height / 2, rect.width / 2)
-
         var path = Path()
         path.move(to: CGPoint(x: notchLeft, y: rect.minY))
         path.addLine(to: CGPoint(x: notchRight, y: rect.minY))

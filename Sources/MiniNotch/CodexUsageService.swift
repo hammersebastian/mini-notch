@@ -47,6 +47,14 @@ struct CodexUsageWindow: Equatable {
     }
 }
 
+struct CodexUsageResetCredit: Equatable, Sendable {
+    let availableCount: Int
+
+    var isAvailable: Bool {
+        availableCount > 0
+    }
+}
+
 enum CodexUsageState: Equatable {
     case loading
     case available
@@ -56,12 +64,14 @@ enum CodexUsageState: Equatable {
 struct CodexUsageSnapshot: Equatable {
     let primaryWindow: CodexUsageWindow?
     let weeklyWindow: CodexUsageWindow?
+    let resetCredit: CodexUsageResetCredit?
     let state: CodexUsageState
     let capturedAt: Date?
 
     static let loading = CodexUsageSnapshot(
         primaryWindow: nil,
         weeklyWindow: nil,
+        resetCredit: nil,
         state: .loading,
         capturedAt: nil
     )
@@ -149,9 +159,12 @@ final class CodexUsageService {
                     return unavailable("Für dieses Codex-Konto sind noch keine Limits verfügbar.")
                 }
 
+                let resetCredit = makeResetCredit(usage.rateLimitResetCredits)
+
                 return CodexUsageSnapshot(
                     primaryWindow: primary,
                     weeklyWindow: weekly,
+                    resetCredit: resetCredit,
                     state: .available,
                     capturedAt: .now
                 )
@@ -176,6 +189,7 @@ final class CodexUsageService {
         CodexUsageSnapshot(
             primaryWindow: nil,
             weeklyWindow: nil,
+            resetCredit: nil,
             state: .unavailable(message),
             capturedAt: nil
         )
@@ -189,6 +203,18 @@ final class CodexUsageService {
             resetAt: window?.resetAt.map(Date.init(timeIntervalSince1970:)),
             limitWindowSeconds: window?.limitWindowSeconds
         )
+    }
+
+    private static func makeResetCredit(
+        _ resetCredits: CodexUsageResponse.RateLimitResetCredits?
+    ) -> CodexUsageResetCredit? {
+        guard let resetCredits else { return nil }
+
+        let credit = CodexUsageResetCredit(
+            availableCount: max(resetCredits.availableCount ?? 0, 0)
+        )
+
+        return credit.isAvailable ? credit : nil
     }
 
     private static func readCredentials() -> CodexCredentials? {
@@ -267,9 +293,19 @@ private struct CodexUsageResponse: Decodable {
         }
     }
 
+    struct RateLimitResetCredits: Decodable {
+        let availableCount: Int?
+
+        enum CodingKeys: String, CodingKey {
+            case availableCount = "available_count"
+        }
+    }
+
     let rateLimit: RateLimit?
+    let rateLimitResetCredits: RateLimitResetCredits?
 
     enum CodingKeys: String, CodingKey {
         case rateLimit = "rate_limit"
+        case rateLimitResetCredits = "rate_limit_reset_credits"
     }
 }

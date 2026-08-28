@@ -60,7 +60,7 @@ Codex-Limits direkt an der Notch an.
 - Spotify und andere macOS-Now-Playing-Quellen, z. B. YouTube im Browser
 - Aufgeklappter Player beim Hover – mit Play/Pause, Zurück, Weiter, Timeline und Systemlautstärke
 - Animierter Equalizer
-- Codex-Limits: 5-Stunden- und Wochenverbrauch mit Restzeit und Rücksetzzeitpunkt
+- Codex-Limits: 5-Stunden- und Wochenverbrauch mit Restzeit und Rücksetzzeitpunkt sowie verfügbare vollständige Resets
 - Medien- und Codex-Ansicht einzeln aktivierbar
 - Farben für Notch, Wave-Animation und Codex-Status anpassbar
 - Menüleisten-App ohne Dock-Icon, optionaler Start bei der Anmeldung
@@ -101,6 +101,7 @@ Für die Codex-Ansicht muss auf dem Mac einmal `codex login` ausgeführt worden
 sein. MiniNotch liest dafür ausschließlich die lokale Datei
 `~/.codex/auth.json`, fragt die aktuellen Limits ab und speichert oder verändert
 deine Zugangsdaten nicht.
+
 
 ## Hinweise
 

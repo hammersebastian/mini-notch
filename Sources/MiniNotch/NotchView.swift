@@ -5,6 +5,7 @@ struct NotchView: View {
     let mediaService: MediaControlService
     let volumeService: SystemVolumeService
     let codexUsageService: CodexUsageService
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Namespace private var contentSwitcherNamespace
 
     var body: some View {
@@ -18,24 +19,28 @@ struct NotchView: View {
                     expansionProgress: model.presentation == .expanded ? 1 : 0
                 )
                 .fill(model.notchBackgroundColor)
-                .animation(
-                    .timingCurve(0.22, 1.0, 0.36, 1.0, duration: 0.26),
-                    value: model.presentation == .expanded
-                )
 
-                switch model.presentation {
-                case .collapsed:
-                    if model.notchContent == .media {
-                        collapsedView
-                    } else if model.notchContent == .codexUsage {
-                        codexCollapsedView
-                    } else {
-                        noActiveContentCollapsedView
-                    }
-                case .expanded:
+                if isExpanded {
                     expandedContentView
+                        .transition(expandedContentTransition)
+                } else {
+                    collapsedContentView
+                        .transition(collapsedContentTransition)
                 }
             }
+            .clipped()
+            .animation(presentationAnimation, value: isExpanded)
+        }
+    }
+
+    @ViewBuilder
+    private var collapsedContentView: some View {
+        if model.notchContent == .media {
+            collapsedView
+        } else if model.notchContent == .codexUsage {
+            codexCollapsedView
+        } else {
+            noActiveContentCollapsedView
         }
     }
 
@@ -119,9 +124,8 @@ struct NotchView: View {
                     noActiveContentExpandedView
                 }
             }
-            .transition(.opacity.combined(with: .scale(scale: 0.98)))
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .animation(.easeInOut(duration: 0.22), value: model.notchContent)
+            .animation(presentationAnimation, value: model.notchContent)
         }
         .padding(.horizontal, 20)
         .padding(.bottom, 12)
@@ -325,6 +329,14 @@ struct NotchView: View {
                         title: "Wöchentliches Limit",
                         window: model.codexUsage.weeklyWindow
                     )
+
+                    if let resetCredit = model.codexUsage.resetCredit {
+                        Text(resetCreditText(resetCredit))
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.54))
+                            .lineLimit(1)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
 
             case .unavailable(let message):
@@ -367,7 +379,7 @@ struct NotchView: View {
         .background(.white.opacity(0.10))
         .clipShape(Capsule())
         .contentShape(Capsule())
-        .animation(.spring(response: 0.32, dampingFraction: 0.80), value: model.notchContent)
+        .animation(presentationAnimation, value: model.notchContent)
     }
 
     private var refreshCodexButton: some View {
@@ -389,7 +401,7 @@ struct NotchView: View {
         let isSelected = model.notchContent == content
 
         return Button {
-            withAnimation(.spring(response: 0.32, dampingFraction: 0.80)) {
+            withAnimation(presentationAnimation) {
                 model.selectNotchContent(content)
             }
             if content == .codexUsage {
@@ -456,6 +468,12 @@ struct NotchView: View {
         }
     }
 
+    private func resetCreditText(_ resetCredit: CodexUsageResetCredit) -> String {
+        resetCredit.availableCount == 1
+            ? "1 Vollständiges Zurücksetzen verfügbar"
+            : "\(resetCredit.availableCount) vollständige Zurücksetzungen verfügbar"
+    }
+
     private func usageColor(for window: CodexUsageWindow?) -> Color {
         guard let percent = window?.usedPercent else { return .white.opacity(0.48) }
 
@@ -507,6 +525,26 @@ struct NotchView: View {
 
     private var expandedContentTopInset: CGFloat {
         notchTopInset + expandedNotchTransitionRadius
+    }
+
+    private var isExpanded: Bool {
+        model.presentation == .expanded
+    }
+
+    private var presentationAnimation: Animation {
+        reduceMotion ? NotchMotion.reducedMotion : NotchMotion.spring
+    }
+
+    private var collapsedContentTransition: AnyTransition {
+        reduceMotion
+            ? .opacity
+            : .opacity.combined(with: .scale(scale: 0.94, anchor: .top))
+    }
+
+    private var expandedContentTransition: AnyTransition {
+        reduceMotion
+            ? .opacity
+            : .opacity.combined(with: .scale(scale: 0.96, anchor: .top))
     }
 
 }
