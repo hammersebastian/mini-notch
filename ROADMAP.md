@@ -163,7 +163,7 @@ Später kann daraus eine zentrale State Machine entstehen.
 
 ## GitHub Issues
 
-- [ ] `[Architecture] Introduce NotchActivity protocol`
+- [x] `[Architecture] Introduce NotchActivity protocol`
 - [ ] `[Architecture] Add ActivityManager`
 - [ ] `[Architecture] Add activity priorities`
 - [ ] `[Architecture] Add automatic activity dismissal`
