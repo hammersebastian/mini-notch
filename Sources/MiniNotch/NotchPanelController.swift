@@ -285,7 +285,6 @@ final class NotchPanelController {
         let shouldDisplayPanel = model.shouldShowNotch || model.isHovered
 
         let presentation = model.presentation
-        updatePanelLevel(for: presentation)
         let size = panelSize(for: presentation, screen: screen)
         let frame = NSRect(
             x: notchCenterX(screen: screen) - size.width / 2,
@@ -321,20 +320,31 @@ final class NotchPanelController {
             menuBarCoverPanel.orderOut(nil)
 
             if panel.isVisible {
+                // Die Notch bleibt während der gemeinsamen Verkleinerungs- und
+                // Ausblendbewegung auf der sichtbaren Ebene. Die Deckkraft
+                // fällt erst im letzten Teil der Federbewegung ab, sodass weder
+                // ein kompakter Zwischenstopp noch ein rechteckiger Endzustand
+                // sichtbar wird.
+                updatePanelLevel(for: .expanded)
                 panelAnimator.animate(
                     to: physicalNotchFrame(on: screen),
-                    alpha: 0
+                    alpha: 0,
+                    fadeOutFrom: 0.72
                 ) { [weak self] in
                     guard let self, !self.model.shouldShowNotch, !self.model.isHovered else {
                         self?.updateFrame()
                         return
                     }
                     self.panel.orderOut(nil)
+                    self.updatePanelLevel(for: .collapsed)
                 }
+            } else {
+                updatePanelLevel(for: .collapsed)
             }
             return
         }
 
+        updatePanelLevel(for: presentation)
         updateMenuBarCover(for: presentation, notchFrame: frame, on: screen)
 
         if !panel.isVisible {

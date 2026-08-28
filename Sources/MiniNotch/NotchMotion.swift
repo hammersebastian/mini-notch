@@ -38,6 +38,10 @@ final class NotchPanelAnimator {
 
     private var targetFrame = NSRect.zero
     private var targetAlpha: CGFloat = 1
+    private var fadeOutStartProgress: CGFloat?
+    private var fadeStartHeight: CGFloat = 0
+    private var fadeStartAlpha: CGFloat = 1
+    private var maximumFrameProgress: CGFloat = 0
 
     init(panel: NSPanel) {
         self.panel = panel
@@ -48,6 +52,7 @@ final class NotchPanelAnimator {
         stop(callCompletion: false)
         targetFrame = frame
         self.targetAlpha = targetAlpha
+        fadeOutStartProgress = nil
         apply(frame: frame, alpha: targetAlpha)
         synchronizeWithPanel()
     }
@@ -55,6 +60,7 @@ final class NotchPanelAnimator {
     func animate(
         to frame: NSRect,
         alpha targetAlpha: CGFloat = 1,
+        fadeOutFrom fadeOutStartProgress: CGFloat? = nil,
         completion: (() -> Void)? = nil
     ) {
         guard panel != nil else { return }
@@ -65,21 +71,40 @@ final class NotchPanelAnimator {
             return
         }
 
+        let normalizedFadeStart = fadeOutStartProgress.map {
+            min(max($0, 0), 0.99)
+        }
+        let fadeBehaviorChanged = self.fadeOutStartProgress != normalizedFadeStart
         let targetChanged = !targetFrame.isApproximatelyEqual(to: frame) ||
             abs(self.targetAlpha - targetAlpha) > 0.001
+        let isStartingAnimation = timer == nil
 
-        if timer == nil {
+        if isStartingAnimation {
             synchronizeWithPanel()
             animationStartedAt = ProcessInfo.processInfo.systemUptime
             lastTimestamp = nil
-        } else if targetChanged {
+        } else if targetChanged || fadeBehaviorChanged {
             // Bei einer Umkehr beginnt nur das Zeitlimit neu. Position und
             // Geschwindigkeit bleiben erhalten und gehen nahtlos weiter.
             animationStartedAt = ProcessInfo.processInfo.systemUptime
         }
 
+        if isStartingAnimation || targetChanged || fadeBehaviorChanged {
+            fadeStartHeight = height.value
+            fadeStartAlpha = alpha.value
+            maximumFrameProgress = 0
+
+            // Der verzögerte Fade wird direkt aus dem Fortschritt der
+            // Rahmenanimation abgeleitet. Eine alte Alpha-Geschwindigkeit darf
+            // beim Wechsel der Strategie nicht in die neue Bewegung hineinwirken.
+            if normalizedFadeStart != nil || self.fadeOutStartProgress != nil {
+                alpha.velocity = 0
+            }
+        }
+
         targetFrame = frame
         self.targetAlpha = targetAlpha
+        self.fadeOutStartProgress = normalizedFadeStart
         self.completion = completion
 
         guard !isSettled else {
@@ -126,6 +151,8 @@ final class NotchPanelAnimator {
             remaining -= delta
         }
 
+        applyDelayedFadeIfNeeded()
+
         let frame = NSRect(x: x.value, y: y.value, width: width.value, height: height.value)
         apply(frame: frame, alpha: min(max(alpha.value, 0), 1))
 
@@ -145,7 +172,33 @@ final class NotchPanelAnimator {
         y.integrate(towards: targetFrame.origin.y, stiffness: stiffness, damping: damping, deltaTime: deltaTime)
         width.integrate(towards: targetFrame.width, stiffness: stiffness, damping: damping, deltaTime: deltaTime)
         height.integrate(towards: targetFrame.height, stiffness: stiffness, damping: damping, deltaTime: deltaTime)
-        alpha.integrate(towards: targetAlpha, stiffness: stiffness, damping: damping, deltaTime: deltaTime)
+        if fadeOutStartProgress == nil {
+            alpha.integrate(towards: targetAlpha, stiffness: stiffness, damping: damping, deltaTime: deltaTime)
+        }
+    }
+
+    private func applyDelayedFadeIfNeeded() {
+        guard let fadeOutStartProgress else { return }
+
+        let totalDistance = abs(fadeStartHeight - targetFrame.height)
+        let currentProgress: CGFloat
+        if totalDistance <= 0.001 {
+            currentProgress = 1
+        } else {
+            currentProgress = 1 - abs(height.value - targetFrame.height) / totalDistance
+        }
+
+        // Eine leicht überschwingende Feder darf die Deckkraft nicht wieder
+        // erhöhen, nachdem das Panel bereits in der Hardware-Notch verschwindet.
+        maximumFrameProgress = max(maximumFrameProgress, min(max(currentProgress, 0), 1))
+
+        let fadeProgress = min(
+            max((maximumFrameProgress - fadeOutStartProgress) / (1 - fadeOutStartProgress), 0),
+            1
+        )
+        let easedFadeProgress = fadeProgress * fadeProgress * (3 - 2 * fadeProgress)
+        alpha.value = fadeStartAlpha + (targetAlpha - fadeStartAlpha) * easedFadeProgress
+        alpha.velocity = 0
     }
 
     private var isSettled: Bool {
