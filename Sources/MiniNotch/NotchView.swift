@@ -24,7 +24,7 @@ struct NotchView: View {
                     expandedContentView
                         .transition(expandedContentTransition)
                 } else {
-                    collapsedContentView
+                    compactActivityContentView
                         .transition(collapsedContentTransition)
                 }
             }
@@ -33,9 +33,23 @@ struct NotchView: View {
         }
     }
 
+    private var compactActivityContentView: some View {
+        ZStack {
+            collapsedContentView
+                .id(model.activityManager.currentActivityID)
+                .transition(compactActivityTransition)
+        }
+        .animation(
+            compactActivityAnimation,
+            value: model.activityManager.currentActivityID
+        )
+    }
+
     @ViewBuilder
     private var collapsedContentView: some View {
-        if model.notchContent == .media {
+        if let volumeActivity = model.activityManager.currentActivity as? VolumeActivity {
+            volumeCollapsedView(volumeActivity)
+        } else if model.notchContent == .media {
             collapsedView
         } else if model.notchContent == .codexUsage {
             codexCollapsedView
@@ -44,11 +58,55 @@ struct NotchView: View {
         }
     }
 
-    private var collapsedView: some View {
-        VStack(spacing: 0) {
-            Color.clear
-                .frame(height: notchTopInset)
+    private func volumeCollapsedView(_ activity: VolumeActivity) -> some View {
+        let symbolName = activity.isMuted
+            ? "speaker.slash.fill"
+            : "speaker.wave.2.fill"
 
+        return CompactActivityContainer(topInset: notchTopInset) {
+            HStack(spacing: 8) {
+                Image(systemName: symbolName)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.82))
+
+                GeometryReader { geometry in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(.white.opacity(0.18))
+
+                        Capsule()
+                            .fill(.white.opacity(0.88))
+                            .frame(
+                                width: geometry.size.width * (
+                                    activity.isMuted ? 0 : activity.normalizedVolume
+                                )
+                            )
+                    }
+                }
+                .frame(height: 5)
+
+                Text(activity.displayText)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.82))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .frame(minWidth: 42, alignment: .trailing)
+                    .layoutPriority(1)
+            }
+            .padding(.horizontal, 14)
+            .padding(.bottom, 6)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Lautstärke")
+            .accessibilityValue(
+                activity.isMuted ? "Stumm" : "\(activity.percentage) Prozent"
+            )
+        }
+    }
+
+    private var collapsedView: some View {
+        CompactActivityContainer(topInset: notchTopInset) {
             if model.media.hasMedia {
                 HStack(spacing: 8) {
                     artwork(size: 29)
@@ -90,7 +148,6 @@ struct NotchView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var expandedContentView: some View {
@@ -238,10 +295,7 @@ struct NotchView: View {
     }
 
     private var codexCollapsedView: some View {
-        VStack(spacing: 0) {
-            Color.clear
-                .frame(height: notchTopInset)
-
+        CompactActivityContainer(topInset: notchTopInset) {
             Group {
                 switch model.codexUsage.state {
                 case .loading:
@@ -269,14 +323,10 @@ struct NotchView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(.horizontal, 12)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var noActiveContentCollapsedView: some View {
-        VStack(spacing: 0) {
-            Color.clear
-                .frame(height: notchTopInset)
-
+        CompactActivityContainer(topInset: notchTopInset) {
             Label("Kein Inhalt aktiv", systemImage: "rectangle.slash")
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(.white.opacity(0.68))
@@ -284,7 +334,6 @@ struct NotchView: View {
                 .padding(.bottom, 6)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var noActiveContentExpandedView: some View {
@@ -533,6 +582,21 @@ struct NotchView: View {
 
     private var presentationAnimation: Animation {
         reduceMotion ? NotchMotion.reducedMotion : NotchMotion.spring
+    }
+
+    private var compactActivityAnimation: Animation {
+        reduceMotion
+            ? .easeOut(duration: 0.10)
+            : .easeInOut(duration: 0.18)
+    }
+
+    private var compactActivityTransition: AnyTransition {
+        guard !reduceMotion else { return .opacity }
+
+        return .asymmetric(
+            insertion: .opacity.combined(with: .offset(y: 2)),
+            removal: .opacity.combined(with: .offset(y: -2))
+        )
     }
 
     private var collapsedContentTransition: AnyTransition {

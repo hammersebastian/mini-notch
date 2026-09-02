@@ -35,6 +35,16 @@ enum NotchContent: String, CaseIterable, Identifiable {
     }
 }
 
+extension NotchContent: NotchActivity {
+    /// Media und die bestehende Codex-Ansicht sind gleichrangige, manuell
+    /// wechselbare Basisinhalte. Spätere Warnungen werden eigene Activities.
+    var priority: Int { ActivityPriority.persistentContent }
+
+    var autoDismissAfter: TimeInterval? { nil }
+
+    var isActive: Bool { true }
+}
+
 struct DisplayOption: Identifiable, Hashable {
     let id: UInt32
     let name: String
@@ -42,6 +52,8 @@ struct DisplayOption: Identifiable, Hashable {
 
 @MainActor
 final class AppModel: ObservableObject {
+    let activityManager: ActivityManager
+
     @Published var media = MediaState.empty
     @Published var isHovered = false
     @Published var isCoveredByFrontmostWindow = false
@@ -93,17 +105,6 @@ final class AppModel: ObservableObject {
         }
     }
 
-    @Published var notchContent: NotchContent? {
-        didSet {
-            if let notchContent {
-                UserDefaults.standard.set(notchContent.rawValue, forKey: Self.notchContentKey)
-            } else {
-                UserDefaults.standard.removeObject(forKey: Self.notchContentKey)
-            }
-
-        }
-    }
-
     /// Gespeichert werden nur deaktivierte Inhalte. Dadurch sind spätere neue
     /// Inhaltsarten ohne Migration automatisch verfügbar.
     @Published private(set) var disabledNotchContents: Set<NotchContent> {
@@ -118,6 +119,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var launchAtLogin: Bool
 
     private var keepsEmptyMediaViewVisible = false
+    private var activityManagerCancellables = Set<AnyCancellable>()
 
     private static let notchBackgroundColorKey = "notchBackgroundColor"
     private static let waveColorKey = "waveColor"
@@ -149,7 +151,10 @@ final class AppModel: ObservableObject {
         selectedDisplayID = (UserDefaults.standard.object(forKey: Self.selectedDisplayIDKey) as? NSNumber)?.uint32Value
         disabledNotchContents = disabledContents
 
-        notchContent = initialContent
+        activityManager = ActivityManager(
+            activities: NotchContent.allCases.filter { !disabledContents.contains($0) },
+            selectedActivityID: initialContent?.id
+        )
 
         notchBackgroundColor = Self.storedColor(
             forKey: Self.notchBackgroundColorKey,
@@ -173,10 +178,38 @@ final class AppModel: ObservableObject {
         )
 
         launchAtLogin = SMAppService.mainApp.status == .enabled
+
+        activityManager.objectWillChange
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &activityManagerCancellables)
+
+        activityManager.$currentActivityID
+            .dropFirst()
+            .sink { activityID in
+                if let activityID {
+                    UserDefaults.standard.set(activityID, forKey: Self.notchContentKey)
+                } else {
+                    UserDefaults.standard.removeObject(forKey: Self.notchContentKey)
+                }
+            }
+            .store(in: &activityManagerCancellables)
+    }
+
+    var notchContent: NotchContent? {
+        activityManager.currentActivityID.flatMap(NotchContent.init(rawValue:))
     }
 
     var presentation: NotchPresentation {
-        isHovered ? .expanded : .collapsed
+        // Temporäre Compact-Activities öffnen keine inhaltlich fremde
+        // Media-/Codex-Ansicht. Der bestehende Hover-Zustand bleibt erhalten
+        // und greift wieder, sobald eine Basis-Activity sichtbar ist.
+        if activityManager.currentActivity is VolumeActivity {
+            return .collapsed
+        }
+
+        return isHovered ? .expanded : .collapsed
     }
 
     var shouldShowNotch: Bool {
@@ -185,21 +218,39 @@ final class AppModel: ObservableObject {
     }
 
     func updateMedia(_ newMedia: MediaState) {
-        // Ist der Medieninhalt aktiv und seine Ansicht nicht ausdrücklich
-        // gewählt, wechseln wir zum nächsten verfügbaren Inhalt.
-        if !newMedia.hasMedia && notchContent == .media && !keepsEmptyMediaViewVisible {
-            notchContent = enabledNotchContents.first { $0 != .media }
-        }
-
         media = newMedia
 
         if newMedia.hasMedia {
             keepsEmptyMediaViewVisible = false
+            if isNotchContentEnabled(.media) {
+                activityManager.publish(NotchContent.media)
+            }
+        } else if !keepsEmptyMediaViewVisible {
+            // Ohne laufende Wiedergabe ist Media keine verfügbare Activity.
+            // Eine ausdrücklich gewählte leere Medienansicht bleibt wie bisher
+            // erreichbar, bis ein anderer Inhalt ausgewählt wird.
+            activityManager.removeActivity(withID: NotchContent.media.id)
         }
     }
 
     func updateCodexUsage(_ usage: CodexUsageSnapshot) {
         codexUsage = usage
+    }
+
+    func updateSystemVolume(
+        _ normalizedVolume: Double,
+        isMuted: Bool = false,
+        presentsActivity: Bool
+    ) {
+        let activity = VolumeActivity(
+            normalizedVolume: normalizedVolume,
+            isMuted: isMuted
+        )
+        systemVolume = activity.normalizedVolume
+
+        if presentsActivity {
+            activityManager.publish(activity)
+        }
     }
 
     func selectDisplay(_ displayID: UInt32?) {
@@ -235,13 +286,20 @@ final class AppModel: ObservableObject {
             disabledNotchContents.remove(content)
             if notchContent == nil {
                 selectNotchContent(content)
+            } else if content != .media || media.hasMedia {
+                activityManager.publish(content)
             }
         } else {
+            let wasSelected = notchContent == content
             disabledNotchContents.insert(content)
+            activityManager.removeActivity(withID: content.id)
 
-            if notchContent == content {
-                notchContent = enabledNotchContents.first
+            if wasSelected {
                 keepsEmptyMediaViewVisible = false
+                if let nextContent = enabledNotchContents.first {
+                    activityManager.publish(nextContent)
+                    activityManager.selectActivity(withID: nextContent.id)
+                }
             }
         }
     }
@@ -251,8 +309,13 @@ final class AppModel: ObservableObject {
     func selectNotchContent(_ content: NotchContent) {
         guard isNotchContentEnabled(content) else { return }
 
-        notchContent = content
+        activityManager.publish(content)
+        activityManager.selectActivity(withID: content.id)
         keepsEmptyMediaViewVisible = content == .media && !media.hasMedia
+
+        if content != .media && !media.hasMedia {
+            activityManager.removeActivity(withID: NotchContent.media.id)
+        }
     }
 
     func setLaunchAtLogin(_ enabled: Bool) {

@@ -146,7 +146,7 @@ final class NotchPanelController {
             }
             .store(in: &cancellables)
 
-        model.$notchContent
+        model.activityManager.$currentActivityID
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.updateFrame()

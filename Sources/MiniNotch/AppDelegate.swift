@@ -17,22 +17,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         configureMedia()
         configureCodexUsage()
+        configureVolume()
         configureNotch()
         configureMenuBar()
 
-        volumeService.readVolume { [weak self] volume in
-            if let volume {
-                self?.model.systemVolume = volume
-            }
-        }
-
         mediaService.start()
         codexUsageService.start()
+        volumeService.start()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         mediaService.stop()
         codexUsageService.stop()
+        volumeService.stop()
     }
 
     private func configureMedia() {
@@ -58,6 +55,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func configureCodexUsage() {
         codexUsageService.onStateUpdate = { [weak self] usage in
             self?.model.updateCodexUsage(usage)
+        }
+    }
+
+    private func configureVolume() {
+        volumeService.onStateChange = { [weak self] state in
+            self?.model.updateSystemVolume(
+                state.normalizedVolume,
+                isMuted: state.isMuted,
+                presentsActivity: true
+            )
+        }
+
+        // Der Startwert hält den vorhandenen Media-Regler synchron, stellt
+        // aber bewusst noch keine Activity dar.
+        volumeService.readState { [weak self] state in
+            if let state {
+                self?.model.updateSystemVolume(
+                    state.normalizedVolume,
+                    isMuted: state.isMuted,
+                    presentsActivity: false
+                )
+            }
         }
     }
 

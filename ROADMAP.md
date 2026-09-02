@@ -164,12 +164,12 @@ Später kann daraus eine zentrale State Machine entstehen.
 ## GitHub Issues
 
 - [x] `[Architecture] Introduce NotchActivity protocol`
-- [ ] `[Architecture] Add ActivityManager`
-- [ ] `[Architecture] Add activity priorities`
-- [ ] `[Architecture] Add automatic activity dismissal`
-- [ ] `[Architecture] Add shared activity lifecycle`
-- [ ] `[UI] Add shared compact activity container`
-- [ ] `[UI] Add activity transition animations`
+- [x] `[Architecture] Add ActivityManager`
+- [x] `[Architecture] Add activity priorities`
+- [x] `[Architecture] Add automatic activity dismissal`
+- [x] `[Architecture] Add shared activity lifecycle`
+- [x] `[UI] Add shared compact activity container`
+- [x] `[UI] Add activity transition animations`
 
 ---
 
@@ -300,8 +300,8 @@ Optional unterschiedliche Schwellen:
 
 ## GitHub Issues
 
-- [ ] `[System HUD] Add volume activity`
-- [ ] `[System HUD] Add mute state`
+- [x] `[System HUD] Add volume activity`
+- [x] `[System HUD] Add mute state`
 - [ ] `[System HUD] Add brightness activity`
 - [ ] `[Battery] Add charging activity`
 - [ ] `[Battery] Add fully charged activity`

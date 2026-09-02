@@ -14,6 +14,11 @@ let package = Package(
         .executableTarget(
             name: "MiniNotch",
             path: "Sources/MiniNotch"
+        ),
+        .testTarget(
+            name: "MiniNotchTests",
+            dependencies: ["MiniNotch"],
+            path: "Tests/MiniNotchTests"
         )
     ]
 )
