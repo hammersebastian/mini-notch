@@ -79,7 +79,7 @@ Die App liegt danach unter `build/MiniNotch.app`.
 
 1. Spotify starten und Musik abspielen.
 2. Prüfen, ob Cover, Titel/Interpret und Player-Anzeige an der Notch erscheinen.
-3. Über die Notch fahren und Play/Pause, Zurück, Weiter, Timeline und Lautstärke testen.
+3. Über die Notch fahren und Play/Pause, Zurück, Weiter sowie die nicht interaktive Timeline testen.
 4. Menüleisten-Icon → **Einstellungen …** öffnen.
 5. Medien und Codex-Limits einzeln aktivieren und deaktivieren.
 6. In der erweiterten Codex-Ansicht Fortschrittsbalken, Restzeit und Rücksetzzeitpunkt prüfen.
@@ -192,12 +192,6 @@ zuverlässigsten.
 ### Cover erscheint verzögert
 
 Das ist normal: MediaRemote kann Artwork später als Titel und Interpret liefern.
-
-### Spulen funktioniert bei einem Player nicht
-
-`media-control seek` hängt davon ab, ob die jeweilige Medien-App Seeking über
-MediaRemote unterstützt. Spotify funktioniert meist besser als manche
-Browser-Player.
 
 ### Autostart schlägt im Entwicklungsbuild fehl
 

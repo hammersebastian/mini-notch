@@ -3,7 +3,6 @@ import SwiftUI
 struct NotchView: View {
     @ObservedObject var model: AppModel
     let mediaService: MediaControlService
-    let volumeService: SystemVolumeService
     let codexUsageService: CodexUsageService
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Namespace private var contentSwitcherNamespace
@@ -114,8 +113,8 @@ struct NotchView: View {
                     VStack(alignment: .leading, spacing: 1) {
                         MarqueeText(model.media.title, fontSize: 12)
 
-                        if !model.media.album.isEmpty {
-                            Text(model.media.album)
+                        if !model.media.artist.isEmpty {
+                            Text(model.media.artist)
                                 .font(.system(size: 10, weight: .light))
                                 .foregroundStyle(.white.opacity(0.68))
                                 .lineLimit(1)
@@ -203,7 +202,7 @@ struct NotchView: View {
         VStack(spacing: 10) {
             HStack(spacing: 15) {
                 artwork(size: 60)
-
+                        
                 VStack(alignment: .leading, spacing: 3) {
                     Text(model.media.title)
                         .font(.system(size: 17, weight: .semibold))
@@ -229,7 +228,9 @@ struct NotchView: View {
                 EqualizerView(playing: model.media.isPlaying, color: model.waveColor)
             }
 
+
             HStack(spacing: 28) {
+
                 controlButton("backward.fill") {
                     mediaService.previous()
                 }
@@ -249,30 +250,53 @@ struct NotchView: View {
                 controlButton("forward.fill") {
                     mediaService.next()
                 }
+
             }
 
-            HStack(spacing: 10) {
-                Image(systemName: "speaker.fill")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.white.opacity(0.55))
-
-                Slider(
-                    value: Binding(
-                        get: { model.systemVolume },
-                        set: { newValue in
-                            model.systemVolume = newValue
-                            volumeService.setVolume(newValue)
-                        }
-                    ),
-                    in: 0...1
-                )
-                .controlSize(.mini)
-
-                Image(systemName: "speaker.wave.3.fill")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.white.opacity(0.55))
+            if model.media.isPlaying {
+                if reduceMotion {
+                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                        mediaTimeline(at: context.date)
+                    }
+                } else {
+                    TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { context in
+                        mediaTimeline(at: context.date)
+                    }
+                }
+            } else {
+                mediaTimeline(at: Date())
             }
         }
+    }
+
+    private func mediaTimeline(at date: Date) -> some View {
+        HStack(spacing: 10) {
+            Text(model.media.elapsedTimeText(at: date))
+                .frame(minWidth: 34, alignment: .leading)
+
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(.white.opacity(0.18))
+
+                    Capsule()
+                        .fill(.white.opacity(0.88))
+                        .frame(
+                            width: geometry.size.width * model.media.progress(at: date)
+                        )
+                }
+            }
+            .frame(height: 5)
+
+            Text(model.media.durationText)
+                .frame(minWidth: 34, alignment: .trailing)
+        }
+        .font(.system(size: 11, weight: .medium))
+        .foregroundStyle(.white.opacity(0.68))
+        .monospacedDigit()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Wiedergabefortschritt")
+        .accessibilityValue(model.media.timelineAccessibilityText(at: date))
     }
 
     private var emptyMediaExpandedContent: some View {

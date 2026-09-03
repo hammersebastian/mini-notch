@@ -97,12 +97,11 @@ struct VolumeActivityTests {
     }
 
     @Test
-    func testSilentInitialVolumeUpdateDoesNotPublishActivity() {
+    func testSilentVolumeUpdateDoesNotPublishActivity() {
         let model = AppModel()
 
         model.updateSystemVolume(0.72, presentsActivity: false)
 
-        #expect(model.systemVolume == 0.72)
         #expect(!model.activityManager.activities.contains {
             $0.id == VolumeActivity.activityID
         })

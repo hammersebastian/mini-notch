@@ -6,7 +6,6 @@ import SwiftUI
 final class NotchPanelController {
     private let model: AppModel
     private let mediaService: MediaControlService
-    private let volumeService: SystemVolumeService
     private let codexUsageService: CodexUsageService
     private let panel: NSPanel
     private let menuBarCoverPanel: NSPanel
@@ -22,12 +21,10 @@ final class NotchPanelController {
     init(
         model: AppModel,
         mediaService: MediaControlService,
-        volumeService: SystemVolumeService,
         codexUsageService: CodexUsageService
     ) {
         self.model = model
         self.mediaService = mediaService
-        self.volumeService = volumeService
         self.codexUsageService = codexUsageService
 
         panel = NSPanel(
@@ -109,7 +106,6 @@ final class NotchPanelController {
             rootView: NotchView(
                 model: model,
                 mediaService: mediaService,
-                volumeService: volumeService,
                 codexUsageService: codexUsageService
             )
         )
@@ -478,9 +474,9 @@ final class NotchPanelController {
         case .expanded:
             let standardExpandedHeight = max(model.physicalNotchHeight + 190, 226)
             // Die Mediensteuerung enthält zusätzlich zum Kopfbereich Album,
-            // Transporttasten und Lautstärkeregler. Nach dem neuen
-            // Notch-Übergang ist ihr oberer Freiraum größer; ohne diese Höhe
-            // würde der Regler am unteren Rand anliegen.
+            // Transporttasten und Timeline. Nach dem neuen Notch-Übergang ist
+            // ihr oberer Freiraum größer; ohne diese Höhe würde die Timeline
+            // am unteren Rand anliegen.
             let mediaControlsHeight: CGFloat = model.notchContent == .media ? 20 : 0
             let expandedHeight = standardExpandedHeight + mediaControlsHeight
 

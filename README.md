@@ -58,7 +58,7 @@ Codex-Limits direkt an der Notch an.
 
 - Titel, Interpret und Cover direkt an der Notch
 - Spotify und andere macOS-Now-Playing-Quellen, z. B. YouTube im Browser
-- Aufgeklappter Player beim Hover – mit Play/Pause, Zurück, Weiter, Timeline und Systemlautstärke
+- Aufgeklappter Player beim Hover – mit Play/Pause, Zurück, Weiter und Timeline
 - Animierter Equalizer
 - Codex-Limits: 5-Stunden- und Wochenverbrauch mit Restzeit und Rücksetzzeitpunkt sowie verfügbare vollständige Resets
 - Medien- und Codex-Ansicht einzeln aktivierbar
@@ -110,7 +110,7 @@ deine Zugangsdaten nicht.
   häufig ebenfalls.
 - Cover können etwas später als Titel und Interpret erscheinen, weil macOS die
   MediaRemote-Metadaten zeitversetzt bereitstellt.
-- Die Steuerung zum Spulen hängt von der jeweiligen Medien-App ab.
+- Die Timeline zeigt die vergangene Zeit und Gesamtdauer, dient aber nicht zum Spulen.
 
 ## Entwickeln und veröffentlichen
 

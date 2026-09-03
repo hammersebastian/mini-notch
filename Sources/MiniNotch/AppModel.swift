@@ -61,7 +61,6 @@ final class AppModel: ObservableObject {
     @Published var physicalNotchWidth: CGFloat = 190
     @Published var physicalNotchHeight: CGFloat = 32
     @Published var lastError: String?
-    @Published var systemVolume: Double = 0.5
     @Published var codexUsage = CodexUsageSnapshot.loading
     @Published private(set) var displayOptions: [DisplayOption]
 
@@ -246,8 +245,6 @@ final class AppModel: ObservableObject {
             normalizedVolume: normalizedVolume,
             isMuted: isMuted
         )
-        systemVolume = activity.normalizedVolume
-
         if presentsActivity {
             activityManager.publish(activity)
         }

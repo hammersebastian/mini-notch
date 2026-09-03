@@ -47,7 +47,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         notchController = NotchPanelController(
             model: model,
             mediaService: mediaService,
-            volumeService: volumeService,
             codexUsageService: codexUsageService
         )
     }
@@ -65,18 +64,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 isMuted: state.isMuted,
                 presentsActivity: true
             )
-        }
-
-        // Der Startwert hält den vorhandenen Media-Regler synchron, stellt
-        // aber bewusst noch keine Activity dar.
-        volumeService.readState { [weak self] state in
-            if let state {
-                self?.model.updateSystemVolume(
-                    state.normalizedVolume,
-                    isMuted: state.isMuted,
-                    presentsActivity: false
-                )
-            }
         }
     }
 

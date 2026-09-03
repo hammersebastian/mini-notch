@@ -40,22 +40,6 @@ final class SystemVolumeService {
         }
     }
 
-    func readState(completion: @escaping (SystemVolumeSnapshot?) -> Void) {
-        eventQueue.async {
-            let state = Self.readDefaultOutputState()
-            DispatchQueue.main.async {
-                completion(state)
-            }
-        }
-    }
-
-    func setVolume(_ normalizedValue: Double) {
-        let percent = Int((min(max(normalizedValue, 0), 1) * 100).rounded())
-        DispatchQueue.global(qos: .utility).async {
-            _ = Self.runAppleScript("set volume output volume \(percent)")
-        }
-    }
-
     deinit {
         stop()
     }
@@ -350,25 +334,5 @@ final class SystemVolumeService {
 
         guard values.count == addresses.count else { return nil }
         return values.allSatisfy { $0 }
-    }
-
-    private static func runAppleScript(_ script: String) -> String? {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        process.arguments = ["-e", script]
-
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
-
-        do {
-            try process.run()
-            process.waitUntilExit()
-            guard process.terminationStatus == 0 else { return nil }
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            return String(data: data, encoding: .utf8)
-        } catch {
-            return nil
-        }
     }
 }
