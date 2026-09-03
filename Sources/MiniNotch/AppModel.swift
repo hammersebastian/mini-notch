@@ -13,6 +13,7 @@ enum NotchPresentation: Equatable {
 enum NotchContent: String, CaseIterable, Identifiable {
     case media
     case codexUsage
+    case mouseJiggler
 
     var id: String { rawValue }
 
@@ -22,6 +23,8 @@ enum NotchContent: String, CaseIterable, Identifiable {
             return "Medien"
         case .codexUsage:
             return "Codex-Limits"
+        case .mouseJiggler:
+            return "Mausmodus"
         }
     }
 
@@ -31,6 +34,8 @@ enum NotchContent: String, CaseIterable, Identifiable {
             return "music.note"
         case .codexUsage:
             return "chevron.left.forwardslash.chevron.right"
+        case .mouseJiggler:
+            return "cursorarrow.motionlines"
         }
     }
 }

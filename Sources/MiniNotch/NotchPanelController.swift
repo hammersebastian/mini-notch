@@ -7,6 +7,7 @@ final class NotchPanelController {
     private let model: AppModel
     private let mediaService: MediaControlService
     private let codexUsageService: CodexUsageService
+    private let mouseJigglerService: MouseJigglerService
     private let panel: NSPanel
     private let menuBarCoverPanel: NSPanel
     private let occlusionService = WindowOcclusionService()
@@ -21,11 +22,13 @@ final class NotchPanelController {
     init(
         model: AppModel,
         mediaService: MediaControlService,
-        codexUsageService: CodexUsageService
+        codexUsageService: CodexUsageService,
+        mouseJigglerService: MouseJigglerService
     ) {
         self.model = model
         self.mediaService = mediaService
         self.codexUsageService = codexUsageService
+        self.mouseJigglerService = mouseJigglerService
 
         panel = NSPanel(
             contentRect: .zero,
@@ -106,7 +109,8 @@ final class NotchPanelController {
             rootView: NotchView(
                 model: model,
                 mediaService: mediaService,
-                codexUsageService: codexUsageService
+                codexUsageService: codexUsageService,
+                mouseJigglerService: mouseJigglerService
             )
         )
 
@@ -473,12 +477,9 @@ final class NotchPanelController {
 
         case .expanded:
             let standardExpandedHeight = max(model.physicalNotchHeight + 190, 226)
-            // Die Mediensteuerung enthält zusätzlich zum Kopfbereich Album,
-            // Transporttasten und Timeline. Nach dem neuen Notch-Übergang ist
-            // ihr oberer Freiraum größer; ohne diese Höhe würde die Timeline
-            // am unteren Rand anliegen.
-            let mediaControlsHeight: CGFloat = model.notchContent == .media ? 20 : 0
-            let expandedHeight = standardExpandedHeight + mediaControlsHeight
+            // Alle Basisinhalte verwenden dieselbe Expanded-Höhe. Das
+            // verhindert einen sichtbaren Größensprung beim Wechseln.
+            let expandedHeight = standardExpandedHeight + 20
 
             return NSSize(
                 width: min(max(notch + 440, 600), maximumWidth),

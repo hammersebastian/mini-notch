@@ -4,6 +4,7 @@ struct NotchView: View {
     @ObservedObject var model: AppModel
     let mediaService: MediaControlService
     let codexUsageService: CodexUsageService
+    @ObservedObject var mouseJigglerService: MouseJigglerService
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Namespace private var contentSwitcherNamespace
 
@@ -52,6 +53,8 @@ struct NotchView: View {
             collapsedView
         } else if model.notchContent == .codexUsage {
             codexCollapsedView
+        } else if model.notchContent == .mouseJiggler {
+            mouseJigglerCollapsedView
         } else {
             noActiveContentCollapsedView
         }
@@ -174,8 +177,10 @@ struct NotchView: View {
             ZStack(alignment: .top) {
                 if model.notchContent == .media {
                     mediaExpandedContent
-                } else if model.notchContent == .codexUsage {
-                    codexExpandedContent
+            } else if model.notchContent == .codexUsage {
+                codexExpandedContent
+            } else if model.notchContent == .mouseJiggler {
+                mouseJigglerExpandedContent
                 } else {
                     noActiveContentExpandedView
                 }
@@ -349,6 +354,40 @@ struct NotchView: View {
         }
     }
 
+    private var mouseJigglerCollapsedView: some View {
+        CompactActivityContainer(topInset: notchTopInset) {
+            HStack(spacing: 8) {
+                Image(systemName: "cursorarrow.motionlines")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(
+                        mouseJigglerService.isRunning
+                            ? Color.green.opacity(0.92)
+                            : Color.white.opacity(0.72)
+                    )
+
+                Text("Mausmodus")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.84))
+
+                Spacer(minLength: 0)
+
+                Text(mouseJigglerService.isRunning ? "Aktiv" : "Aus")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(
+                        mouseJigglerService.isRunning
+                            ? Color.green.opacity(0.92)
+                            : Color.white.opacity(0.56)
+                    )
+            }
+            .padding(.horizontal, 14)
+            .padding(.bottom, 6)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Mausmodus")
+            .accessibilityValue(mouseJigglerService.isRunning ? "Aktiv" : "Aus")
+        }
+    }
+
     private var noActiveContentCollapsedView: some View {
         CompactActivityContainer(topInset: notchTopInset) {
             Label("Kein Inhalt aktiv", systemImage: "rectangle.slash")
@@ -408,7 +447,7 @@ struct NotchView: View {
                             .font(.system(size: 10, weight: .medium))
                             .foregroundStyle(.white.opacity(0.54))
                             .lineLimit(1)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .frame(maxWidth: .infinity, alignment: .center)
                     }
                 }
 
@@ -425,6 +464,50 @@ struct NotchView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             }
+        }
+    }
+
+    private var mouseJigglerExpandedContent: some View {
+        VStack(spacing: 12) {
+
+            Text(mouseJigglerService.isRunning ? "Mausmodus ist aktiv" : "Mausmodus ist aus")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(
+                        mouseJigglerService.isRunning
+                            ? Color.green.opacity(0.92)
+                            : Color.white.opacity(0.72)
+                )
+
+            Button {
+                toggleMouseJiggler()
+            } label: {
+                Label(
+                    mouseJigglerService.isRunning ? "Mausmodus stoppen" : "Mausmodus starten",
+                    systemImage: mouseJigglerService.isRunning ? "stop.fill" : "play.fill"
+                )
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(mouseJigglerService.isRunning ? .white : .black)
+                .frame(minWidth: 156, minHeight: 32)
+                .background(mouseJigglerService.isRunning ? .white.opacity(0.16) : .white)
+                .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Benötigt Bedienungshilfen-Zugriff")
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func toggleMouseJiggler() {
+        if mouseJigglerService.isRunning {
+            mouseJigglerService.stop()
+            return
+        }
+
+        switch mouseJigglerService.start() {
+        case .started, .alreadyRunning:
+            model.lastError = nil
+        case .accessibilityPermissionRequired:
+            model.lastError = "Für den Mausmodus benötigt MiniNotch den Bedienungshilfen-Zugriff. Bitte erlaube ihn in den Systemeinstellungen und starte den Modus danach erneut."
         }
     }
 

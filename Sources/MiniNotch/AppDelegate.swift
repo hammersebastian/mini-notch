@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let mediaService = MediaControlService()
     private let volumeService = SystemVolumeService()
     private let codexUsageService = CodexUsageService()
+    private let mouseJigglerService = MouseJigglerService()
 
     private var notchController: NotchPanelController?
     private var statusItem: NSStatusItem?
@@ -30,6 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mediaService.stop()
         codexUsageService.stop()
         volumeService.stop()
+        mouseJigglerService.stop()
     }
 
     private func configureMedia() {
@@ -47,7 +49,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         notchController = NotchPanelController(
             model: model,
             mediaService: mediaService,
-            codexUsageService: codexUsageService
+            codexUsageService: codexUsageService,
+            mouseJigglerService: mouseJigglerService
         )
     }
 
